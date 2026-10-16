@@ -1,0 +1,13 @@
+node_modules
+out
+.DS_Store
+.env
+# Contenuti delle guide: mai nel progetto pubblico (stanno nell'archivio privato)
+public/*
+!public/Inter.woff2
+girato/
+lezione.json
+musica.mp3
+pezzi.txt
+dati*.ts
+parole*.json

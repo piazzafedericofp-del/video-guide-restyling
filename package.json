@@ -1,0 +1,24 @@
+{
+  "name": "video-guide-restyling",
+  "version": "1.0.0",
+  "description": "Montaggio delle lezioni delle video guide di federicopiazza.com (solo codice, nessun contenuto)",
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "@remotion/cli": "4.0.535",
+    "@remotion/fonts": "4.0.535",
+    "@remotion/media": "4.0.535",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.535"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.7",
+    "@types/web": "0.0.166",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "render": "remotion render src/cloud/index.ts GuidaLezione",
+    "check": "tsc --noEmit"
+  }
+}

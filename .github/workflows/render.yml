@@ -1,0 +1,138 @@
+# Render delle lezioni delle video guide, una alla volta.
+# Ogni 15 minuti controlla l'archivio privato (R2): se c'è una lezione con i dati pronti la monta
+# dal girato 4K originale (release del progetto privato) e salva il video finito nella release "restaurati".
+# Nel codice e nei log non compare nessun contenuto delle guide.
+name: Render lezione
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      lezione:
+        description: "id della lezione (vuoto = la prossima in coda)"
+        required: false
+
+concurrency:
+  group: render
+  cancel-in-progress: false
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: auto
+  R2: s3://video-guide-restyling
+  R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+  GH_TOKEN: ${{ secrets.MEDIA_TOKEN }}
+  MEDIA_REPO: piazzafedericofp-del/video-guide-media
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - name: Scegli la lezione
+        id: scelta
+        run: |
+          s3() { aws s3 --endpoint-url "$R2_ENDPOINT" "$@"; }
+          ID="${{ github.event.inputs.lezione }}"
+          if [ -z "$ID" ]; then
+            # Prima lezione in ordine con stato "dati_pronti"
+            for k in $(s3 ls "$R2/lezioni/" | awk '{print $2}' | tr -d / | sort); do
+              st=$(s3 cp "$R2/lezioni/$k/stato" - 2>/dev/null || true)
+              if [ "$st" = "dati_pronti" ]; then ID="$k"; break; fi
+            done
+          fi
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+          [ -n "$ID" ] && echo "Lezione: $ID" || echo "Niente in coda"
+
+      - uses: actions/checkout@v4
+        if: steps.scelta.outputs.id != ''
+
+      - uses: actions/setup-node@v4
+        if: steps.scelta.outputs.id != ''
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Strumenti
+        if: steps.scelta.outputs.id != ''
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libgbm1 \
+            libxcomposite1 libxdamage1 libxrandr2 libpango-1.0-0 libcairo2 libasound2t64 libcups2 >/dev/null
+          npm ci --no-audit --no-fund
+          npx remotion browser ensure
+
+      - name: Scarica girato, dati e musica
+        if: steps.scelta.outputs.id != ''
+        env:
+          ID: ${{ steps.scelta.outputs.id }}
+        run: |
+          set -euo pipefail
+          s3() { aws s3 --endpoint-url "$R2_ENDPOINT" "$@"; }
+          echo -n in_render | s3 cp - "$R2/lezioni/$ID/stato"
+          s3 cp "$R2/lezioni/$ID/lezione.json" lezione.json --only-show-errors
+          s3 cp "$R2/lezioni/$ID/dati.json" public/dati.json --only-show-errors
+          s3 cp "$R2/$(jq -r .musica lezione.json)" musica.mp3 --only-show-errors
+          mkdir -p girato
+          for f in $(jq -r '.girato[]' lezione.json); do
+            gh release download girati -R "$MEDIA_REPO" -p "$f" -D girato
+          done
+          # Pezzi di un girato diviso (oltre 2 GB): riuniti senza ricodifica
+          if [ "$(jq '.girato | length' lezione.json)" -gt 1 ]; then
+            for f in $(jq -r '.girato[]' lezione.json); do echo "file 'girato/$f'"; done > pezzi.txt
+            ffmpeg -v error -f concat -safe 0 -i pezzi.txt -map 0 -c copy girato/intero.mov
+          else
+            mv "girato/$(jq -r '.girato[0]' lezione.json)" girato/intero.mov
+          fi
+
+      - name: Prepara girato e colonna sonora
+        if: steps.scelta.outputs.id != ''
+        run: |
+          set -euo pipefail
+          INIZIO=$(jq -r .inizioFile public/dati.json)
+          DUR=$(jq -r '(.tratti[-1].a - .inizioFile + 0.5)' public/dati.json)
+          scripts/prepara-girato.sh girato/intero.mov "$INIZIO" "$DUR" lezione
+          TRATTI=$(jq -r '.inizioFile as $i | [.tratti[] | "\(.da - $i):\(.a - $i)"] | join(" ")' public/dati.json)
+          MONT=$(jq -r '[.tratti[] | .a - .da] | add' public/dati.json)
+          TOT=$(jq -r '([.tratti[] | .a - .da] | add) + .durataFinale' public/dati.json)
+          scripts/colonna.sh lezione musica.mp3 "$TOT" "$MONT" "$TRATTI"
+          rm -rf girato
+
+      - name: Render
+        if: steps.scelta.outputs.id != ''
+        run: |
+          npx remotion render src/cloud/index.ts GuidaLezione out/lezione.mp4 --codec=h264 --crf=18 --log=error
+
+      - name: Controlli e foglio di controllo
+        if: steps.scelta.outputs.id != ''
+        run: |
+          set -euo pipefail
+          D=$(ffprobe -v error -show_entries format=duration -of csv=p=0 out/lezione.mp4)
+          A=$(ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 out/lezione.mp4)
+          [ "$A" = "audio" ] || { echo "manca l'audio"; exit 1; }
+          echo "durata $D s"
+          ffmpeg -v error -i out/lezione.mp4 -vf "fps=1/$(python3 -c "print(max(1,round($D/8)))"),scale=480:-1,tile=4x2" -frames:v 1 out/foglio.jpg
+
+      - name: Salva il video finito
+        if: steps.scelta.outputs.id != ''
+        env:
+          ID: ${{ steps.scelta.outputs.id }}
+        run: |
+          set -euo pipefail
+          s3() { aws s3 --endpoint-url "$R2_ENDPOINT" "$@"; }
+          NOME=$(jq -r .uscita lezione.json)
+          cp out/lezione.mp4 "out/$NOME"
+          gh release upload restaurati "out/$NOME" -R "$MEDIA_REPO" --clobber
+          s3 cp out/foglio.jpg "$R2/lezioni/$ID/foglio.jpg" --only-show-errors
+          # Libera spazio su Cloudflare: restano solo stato, dati e foglio (pochi KB)
+          s3 rm "$R2/lezioni/$ID/anteprima.mp4" --only-show-errors || true
+          echo -n pronto | s3 cp - "$R2/lezioni/$ID/stato"
+
+      - name: Segna errore
+        if: failure() && steps.scelta.outputs.id != ''
+        env:
+          ID: ${{ steps.scelta.outputs.id }}
+        run: |
+          echo -n errore | aws s3 --endpoint-url "$R2_ENDPOINT" cp - "$R2/lezioni/$ID/stato"
