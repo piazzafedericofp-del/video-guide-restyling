@@ -1,7 +1,7 @@
 # Render delle lezioni delle video guide, una alla volta.
-# Ogni 15 minuti controlla l'archivio privato (R2): se c'è una lezione con i dati pronti la monta
-# dal girato 4K originale (release del progetto privato) e salva il video finito nella release "restaurati".
-# Nel codice e nei log non compare nessun contenuto delle guide.
+# Ogni 15 minuti guarda il progetto privato video-guide-media: se una lezione ha lo stato "dati_pronti"
+# (montaggio preparato dalla routine Claude) la monta dai girati 4K originali (release "girati")
+# e salva il video finito nella release "restaurati". Nel codice e nei log non compare nessun contenuto delle guide.
 name: Render lezione
 
 on:
@@ -18,11 +18,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-  AWS_DEFAULT_REGION: auto
-  R2: s3://video-guide-restyling
-  R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
   GH_TOKEN: ${{ secrets.MEDIA_TOKEN }}
   MEDIA_REPO: piazzafedericofp-del/video-guide-media
 
@@ -31,32 +26,63 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 300
     steps:
+      - name: Progetto privato (solo catalogo, lezioni, musica)
+        uses: actions/checkout@v4
+        with:
+          repository: piazzafedericofp-del/video-guide-media
+          token: ${{ secrets.MEDIA_TOKEN }}
+          path: media
+          sparse-checkout: |
+            catalogo.json
+            lezioni
+            musica
+
       - name: Scegli la lezione
         id: scelta
         run: |
-          s3() { aws s3 --endpoint-url "$R2_ENDPOINT" "$@"; }
-          ID="${{ github.event.inputs.lezione }}"
-          if [ -z "$ID" ]; then
-            # Prima lezione in ordine con stato "dati_pronti"
-            for k in $(s3 ls "$R2/lezioni/" | awk '{print $2}' | tr -d / | sort); do
-              st=$(s3 cp "$R2/lezioni/$k/stato" - 2>/dev/null || true)
-              if [ "$st" = "dati_pronti" ]; then ID="$k"; break; fi
-            done
-          fi
+          ID=$(python3 - "${{ github.event.inputs.lezione }}" <<'EOF'
+          import json, sys, os
+          scelta = sys.argv[1]
+          cat = json.load(open("media/catalogo.json"))["lezioni"]
+          def stato(i):
+              p = f"media/lezioni/{i}/stato"
+              return open(p).read().strip() if os.path.exists(p) else ""
+          if scelta:
+              print(scelta)
+          else:
+              pronte = [l for l in sorted(cat, key=lambda l: l["ordine"]) if stato(l["id"]) == "dati_pronti"]
+              print(pronte[0]["id"] if pronte else "")
+          EOF
+          )
           echo "id=$ID" >> "$GITHUB_OUTPUT"
           [ -n "$ID" ] && echo "Lezione: $ID" || echo "Niente in coda"
 
+      - name: Segna "in_render"
+        if: steps.scelta.outputs.id != ''
+        env:
+          ID: ${{ steps.scelta.outputs.id }}
+        run: |
+          cd media
+          git config user.name "render-video-guide"; git config user.email "render@users.noreply.github.com"
+          echo -n in_render > "lezioni/$ID/stato"
+          git add "lezioni/$ID/stato"; git commit -q -m "$ID: in render"
+          for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
+
       - uses: actions/checkout@v4
         if: steps.scelta.outputs.id != ''
+        with:
+          path: codice
 
       - uses: actions/setup-node@v4
         if: steps.scelta.outputs.id != ''
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: codice/package-lock.json
 
       - name: Strumenti
         if: steps.scelta.outputs.id != ''
+        working-directory: codice
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libgbm1 \
@@ -64,37 +90,53 @@ jobs:
           npm ci --no-audit --no-fund
           npx remotion browser ensure
 
-      - name: Scarica girato, dati e musica
+      - name: Scarica girati, dati e musica
         if: steps.scelta.outputs.id != ''
         env:
           ID: ${{ steps.scelta.outputs.id }}
+        working-directory: codice
         run: |
           set -euo pipefail
-          s3() { aws s3 --endpoint-url "$R2_ENDPOINT" "$@"; }
-          echo -n in_render | s3 cp - "$R2/lezioni/$ID/stato"
-          s3 cp "$R2/lezioni/$ID/lezione.json" lezione.json --only-show-errors
-          s3 cp "$R2/lezioni/$ID/dati.json" public/dati.json --only-show-errors
-          # Immagini proprie della lezione (es. anatomia), se presenti
-          s3 cp "$R2/lezioni/$ID/immagini/" public/ --recursive --only-show-errors || true
-          s3 cp "$R2/$(jq -r .musica lezione.json)" musica.mp3 --only-show-errors
+          L="../media/lezioni/$ID"
+          cp "$L/dati.json" public/dati.json
+          [ -d "$L/immagini" ] && cp "$L/immagini/"* public/ || true
+          cp ../media/musica/an-open-top-car.mp3 musica.mp3
+          python3 -c "
+          import json
+          l=[x for x in json.load(open('../media/catalogo.json'))['lezioni'] if x['id']=='$ID'][0]
+          for i,s in enumerate(l['sorgenti']): print(i, ' '.join(s['file']))
+          " > sorgenti.txt
           mkdir -p girato
-          for f in $(jq -r '.girato[]' lezione.json); do
-            gh release download girati -R "$MEDIA_REPO" -p "$f" -D girato
-          done
-          # Pezzi di un girato diviso (oltre 2 GB): riuniti senza ricodifica
-          if [ "$(jq '.girato | length' lezione.json)" -gt 1 ]; then
-            for f in $(jq -r '.girato[]' lezione.json); do echo "file 'girato/$f'"; done > pezzi.txt
-            ffmpeg -v error -f concat -safe 0 -i pezzi.txt -map 0 -c copy girato/intero.mov
+          N=$(wc -l < sorgenti.txt)
+          while read -r I FILES; do
+            for f in $FILES; do gh release download girati -R "$MEDIA_REPO" -p "$f" -D girato; done
+            # Pezzi di un girato oltre 2 GB: riuniti senza ricodifica
+            : > girato/pezzi.txt; for f in $FILES; do echo "file '$f'" >> girato/pezzi.txt; done
+            ffmpeg -v error -f concat -safe 0 -i girato/pezzi.txt -map 0:v:0 -map 0:a:0 -c copy "girato/s$I.mov"
+            for f in $FILES; do rm "girato/$f"; done
+          done < sorgenti.txt
+          if [ "$N" -eq 1 ]; then
+            mv girato/s0.mov girato/intero.mov
           else
-            mv "girato/$(jq -r '.girato[0]' lezione.json)" girato/intero.mov
+            # Più riprese nella stessa lezione: ognuna portata a 3840x2160 30 fps con qualità quasi trasparente,
+            # poi messe in fila senza ricodifica. I tempi dei dati seguono questa fila (ripresa 2 dopo la 1, ecc.).
+            : > girato/fila.txt
+            for ((i=0; i<N; i++)); do
+              ffmpeg -v error -i "girato/s$i.mov" -map 0:v:0 -map 0:a:0 \
+                -vf "scale=3840:2160:flags=lanczos,fps=30" -c:v libx264 -crf 10 -preset fast -pix_fmt yuv420p \
+                -c:a aac -b:a 256k -ar 48000 "girato/n$i.mp4"
+              rm "girato/s$i.mov"; echo "file 'n$i.mp4'" >> girato/fila.txt
+            done
+            ffmpeg -v error -f concat -safe 0 -i girato/fila.txt -c copy girato/intero.mov
           fi
 
       - name: Prepara girato e colonna sonora
         if: steps.scelta.outputs.id != ''
+        working-directory: codice
         run: |
           set -euo pipefail
           INIZIO=$(jq -r .inizioFile public/dati.json)
-          DUR=$(jq -r '(.tratti[-1].a - .inizioFile + 0.5)' public/dati.json)
+          DUR=$(jq -r '([.tratti[].a] | max) - .inizioFile + 0.5' public/dati.json)
           scripts/prepara-girato.sh girato/intero.mov "$INIZIO" "$DUR" lezione
           TRATTI=$(jq -r '.inizioFile as $i | [.tratti[] | "\(.da - $i):\(.a - $i)"] | join(" ")' public/dati.json)
           MONT=$(jq -r '[.tratti[] | .a - .da] | add' public/dati.json)
@@ -104,11 +146,12 @@ jobs:
 
       - name: Render
         if: steps.scelta.outputs.id != ''
-        run: |
-          npx remotion render src/cloud/index.ts GuidaLezione out/lezione.mp4 --codec=h264 --crf=18 --log=error
+        working-directory: codice
+        run: npx remotion render src/cloud/index.ts GuidaLezione out/lezione.mp4 --codec=h264 --crf=18 --log=error
 
       - name: Controlli e foglio di controllo
         if: steps.scelta.outputs.id != ''
+        working-directory: codice
         run: |
           set -euo pipefail
           D=$(ffprobe -v error -show_entries format=duration -of csv=p=0 out/lezione.mp4)
@@ -123,18 +166,21 @@ jobs:
           ID: ${{ steps.scelta.outputs.id }}
         run: |
           set -euo pipefail
-          s3() { aws s3 --endpoint-url "$R2_ENDPOINT" "$@"; }
-          NOME=$(jq -r .uscita lezione.json)
-          cp out/lezione.mp4 "out/$NOME"
-          gh release upload restaurati "out/$NOME" -R "$MEDIA_REPO" --clobber
-          s3 cp out/foglio.jpg "$R2/lezioni/$ID/foglio.jpg" --only-show-errors
-          # Libera spazio su Cloudflare: restano solo stato, dati e foglio (pochi KB)
-          s3 rm "$R2/lezioni/$ID/anteprima.mp4" --only-show-errors || true
-          echo -n pronto | s3 cp - "$R2/lezioni/$ID/stato"
+          cp codice/out/lezione.mp4 "codice/out/$ID.mp4"
+          gh release upload restaurati "codice/out/$ID.mp4" -R "$MEDIA_REPO" --clobber
+          cd media
+          cp ../codice/out/foglio.jpg "lezioni/$ID/foglio.jpg"
+          echo -n pronto > "lezioni/$ID/stato"; rm -f "lezioni/$ID/errore.txt"
+          git add "lezioni/$ID"; git commit -q -m "$ID: pronto"
+          for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
 
       - name: Segna errore
         if: failure() && steps.scelta.outputs.id != ''
         env:
           ID: ${{ steps.scelta.outputs.id }}
         run: |
-          echo -n errore | aws s3 --endpoint-url "$R2_ENDPOINT" cp - "$R2/lezioni/$ID/stato"
+          cd media
+          echo -n errore > "lezioni/$ID/stato"
+          echo "Render fallito: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > "lezioni/$ID/errore.txt"
+          git add "lezioni/$ID"; git commit -q -m "$ID: errore"
+          for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
