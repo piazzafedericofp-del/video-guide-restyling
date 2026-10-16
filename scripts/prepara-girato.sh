@@ -6,7 +6,7 @@ set -euo pipefail
 SRC="$1"; DA="$2"; DUR="$3"; NOME="$4"
 P="$(cd "$(dirname "$0")/.." && pwd)/public"
 # Mac: encoder hardware; Linux (cloud): x264 quasi trasparente, qualità pari o superiore
-if [ "$(uname)" = "Darwin" ]; then CODIFICA="-c:v h264_videotoolbox -b:v 70M"; else CODIFICA="-c:v libx264 -crf 12 -preset medium"; fi
+if [ "$(uname)" = "Darwin" ]; then CODIFICA="-c:v h264_videotoolbox -b:v 70M"; else CODIFICA="-c:v libx264 -crf 12 -preset fast"; fi
 ffmpeg -v error -y -ss "$DA" -t "$DUR" -i "$SRC" -map 0:v:0 -an \
   -vf "eq=contrast=1.07:saturation=1.1:gamma=0.97,colorbalance=rs=0.03:bs=-0.03:rm=0.02:bm=-0.02,unsharp=5:5:0.4" \
   $CODIFICA -pix_fmt yuv420p "$P/$NOME-4k.mp4"

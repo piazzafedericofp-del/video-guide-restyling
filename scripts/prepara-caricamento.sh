@@ -25,7 +25,7 @@ for SRC in "$@"; do
     ffmpeg -v error -y -i "$SRC" -map 0 -c copy -f segment -segment_time 240 -reset_timestamps 0 \
       "$O/pezzi/${N%.*}.parte%02d.mov" || { echo "ERRORE pezzi $N"; continue; }
   fi
-  echo "$SRC" > "$O/sorgente"
+  ( cd "$(dirname "$SRC")" && echo "$(pwd)/$(basename "$SRC")" ) > "$O/sorgente"
   touch "$O/pronto"
 done
 echo FINE

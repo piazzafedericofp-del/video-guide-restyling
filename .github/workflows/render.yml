@@ -74,6 +74,8 @@ jobs:
           echo -n in_render | s3 cp - "$R2/lezioni/$ID/stato"
           s3 cp "$R2/lezioni/$ID/lezione.json" lezione.json --only-show-errors
           s3 cp "$R2/lezioni/$ID/dati.json" public/dati.json --only-show-errors
+          # Immagini proprie della lezione (es. anatomia), se presenti
+          s3 cp "$R2/lezioni/$ID/immagini/" public/ --recursive --only-show-errors || true
           s3 cp "$R2/$(jq -r .musica lezione.json)" musica.mp3 --only-show-errors
           mkdir -p girato
           for f in $(jq -r '.girato[]' lezione.json); do
