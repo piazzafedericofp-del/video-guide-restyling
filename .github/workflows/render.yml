@@ -112,10 +112,10 @@ jobs:
           mkdir -p girato
           N=$(wc -l < sorgenti.txt)
           while read -r I FILES; do
-            for f in $FILES; do gh release download girati -R "$MEDIA_REPO" -p "$f" -D girato; done
+            for f in $FILES; do gh release download girati -R "$MEDIA_REPO" -p "$f" -D girato < /dev/null; done
             # Pezzi di un girato oltre 2 GB: riuniti senza ricodifica
             : > girato/pezzi.txt; for f in $FILES; do echo "file '$f'" >> girato/pezzi.txt; done
-            ffmpeg -v error -f concat -safe 0 -i girato/pezzi.txt -map 0:v:0 -map 0:a:0 -c copy "girato/s$I.mov"
+            ffmpeg -nostdin -v error -f concat -safe 0 -i girato/pezzi.txt -map 0:v:0 -map 0:a:0 -c copy "girato/s$I.mov"
             for f in $FILES; do rm "girato/$f"; done
           done < sorgenti.txt
           if [ "$N" -eq 1 ]; then
@@ -125,12 +125,12 @@ jobs:
             # poi messe in fila senza ricodifica. I tempi dei dati seguono questa fila (ripresa 2 dopo la 1, ecc.).
             : > girato/fila.txt
             for ((i=0; i<N; i++)); do
-              ffmpeg -v error -i "girato/s$i.mov" -map 0:v:0 -map 0:a:0 \
+              ffmpeg -nostdin -v error -i "girato/s$i.mov" -map 0:v:0 -map 0:a:0 \
                 -vf "scale=3840:2160:flags=lanczos,fps=30" -c:v libx264 -crf 10 -preset fast -pix_fmt yuv420p \
                 -c:a aac -b:a 256k -ar 48000 "girato/n$i.mp4"
               rm "girato/s$i.mov"; echo "file 'n$i.mp4'" >> girato/fila.txt
             done
-            ffmpeg -v error -f concat -safe 0 -i girato/fila.txt -c copy girato/intero.mov
+            ffmpeg -nostdin -v error -f concat -safe 0 -i girato/fila.txt -c copy girato/intero.mov
           fi
 
       - name: Prepara girato e colonna sonora
@@ -161,7 +161,7 @@ jobs:
           A=$(ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 out/lezione.mp4)
           [ "$A" = "audio" ] || { echo "manca l'audio"; exit 1; }
           echo "durata $D s"
-          ffmpeg -v error -i out/lezione.mp4 -vf "fps=1/$(python3 -c "print(max(1,round($D/8)))"),scale=480:-1,tile=4x2" -frames:v 1 out/foglio.jpg
+          ffmpeg -nostdin -v error -i out/lezione.mp4 -vf "fps=1/$(python3 -c "print(max(1,round($D/8)))"),scale=480:-1,tile=4x2" -frames:v 1 out/foglio.jpg
 
       - name: Salva il video finito
         if: steps.scelta.outputs.id != ''
