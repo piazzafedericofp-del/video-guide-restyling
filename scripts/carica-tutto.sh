@@ -1,15 +1,14 @@
 #!/bin/bash
-# Uso (sul Mac): scripts/carica-tutto.sh <cartella_lavoro>
-# Carica ogni girato preparato da prepara-caricamento.sh:
-#   - originale (o i suoi pezzi) nella release "girati" del progetto privato, senza ricodifica
-#   - anteprima, trascrizione, info e firma nell'archivio R2 (girati/<nome>/)
-# Riprende da dove si era fermato (segna "caricato" in ogni cartella). Credenziali in ~/.config/video-guide/r2.env
+# Uso (sul Mac): scripts/carica-tutto.sh <cartella_lavoro> [clone_di_video-guide-media]
+# Carica ogni girato preparato da prepara-caricamento.sh, solo su GitHub:
+#   - originale (o i suoi pezzi oltre 2 GB) nella release "girati" del progetto privato, senza ricodifica
+#   - anteprima 720p, trascrizione, info e firma in girati/<nome>/ del progetto privato (git)
+# Riprende da dove si era fermato (segna "caricato" in ogni cartella). Serve `gh auth login`.
 set -uo pipefail
-W="$1"; REPO=piazzafedericofp-del/video-guide-media
-set -a; . "$HOME/.config/video-guide/r2.env"; set +a
-export AWS_ACCESS_KEY_ID=$R2_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY=$R2_SECRET_ACCESS_KEY AWS_DEFAULT_REGION=auto
-s3() { aws s3 --endpoint-url "$R2_ENDPOINT" "$@"; }
+W="$1"; M="${2:-$HOME/video-guide-media}"; REPO=piazzafedericofp-del/video-guide-media
+[ -d "$M/.git" ] || gh repo clone "$REPO" "$M" -- -q
 PRESENTI=$(gh release view girati -R "$REPO" --json assets -q '.assets[] | "\(.name) \(.size)"')
+NUOVI=0
 for O in "$W"/girati/*/; do
   O="${O%/}"; N="$(basename "$O")"
   [ -f "$O/pronto" ] || continue
@@ -23,15 +22,18 @@ for O in "$W"/girati/*/; do
     B="$(basename "$F")"; DIM=$(stat -f %z "$F"); NOMI+=("$B")
     if ! grep -qx "$B $DIM" <<< "$PRESENTI"; then
       echo "su  $B ($((DIM/1000000)) MB)"
-      gh release upload girati "$F" -R "$REPO" --clobber >/dev/null || { echo "ERRORE upload $B"; OK=0; continue; }
+      gh release upload girati "$F" -R "$REPO" --clobber >/dev/null || { echo "ERRORE upload $B"; OK=0; }
     fi
   done
   rm -f "$O/$N.MOV" "$O/$N.mov" "$O/$N.MP4" "$O/$N.mp4"
   [ $OK = 1 ] || continue
   printf '%s\n' "${NOMI[@]}" > "$O/file-release.txt"
-  for f in anteprima.mp4 parole.json frasi.srt info.json sha256 file-release.txt; do
-    s3 cp "$O/$f" "s3://video-guide-restyling/girati/$N/$f" --only-show-errors || OK=0
-  done
-  [ $OK = 1 ] && touch "$O/caricato" && echo "ok  $N"
+  mkdir -p "$M/girati/$N"
+  cp "$O"/{anteprima.mp4,parole.json,frasi.srt,info.json,sha256,file-release.txt} "$M/girati/$N/"
+  touch "$O/caricato"; NUOVI=$((NUOVI+1)); echo "ok  $N"
 done
+if [ $NUOVI -gt 0 ]; then
+  cd "$M" && git add girati && git commit -q -m "Anteprime e trascrizioni di $NUOVI girati" && \
+    for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 5; done
+fi
 echo FINE
