@@ -29,7 +29,7 @@ BH = Y1 - Y0
 FINESTRA = 150  # fotogrammi prima e dopo (5 s a 30 fps)
 
 taglio = (["-ss", str(a.da)] if a.da else []) + (["-t", str(a.durata)] if a.durata else [])
-lettore = subprocess.Popen(["ffmpeg", "-v", "error", *taglio, "-i", a.ingresso, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+lettore = subprocess.Popen(["ffmpeg", "-nostdin", "-v", "error", *taglio, "-i", a.ingresso, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
                            stdout=subprocess.PIPE)
 scrittore = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", "30",
                               "-i", "-", *taglio, "-i", a.ingresso, "-map", "0:v", "-map", "1:a?", "-c:v", "libx264",
@@ -37,13 +37,32 @@ scrittore = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "
                              stdin=subprocess.PIPE)
 
 
-def maschera(fascia: np.ndarray) -> np.ndarray:
-    """Pixel di testo: quasi bianchi e poco saturi, allargati di 5 px per prendere bordo e ombra."""
+def bianco(fascia: np.ndarray) -> np.ndarray:
     f = fascia.astype(np.int16)
-    m = (f.min(axis=2) > 205) & ((f.max(axis=2) - f.min(axis=2)) < 40)
+    return (f.min(axis=2) > 185) & ((f.max(axis=2) - f.min(axis=2)) < 45)
+
+
+# Bianco FISSO (muro, porta, vaso): bianco in almeno l'85% di 60 fotogrammi presi lungo tutto il video.
+# Non è scritta: va escluso, altrimenti viene "ricostruito" con colori sbagliati.
+durata_tot = float(json.loads(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                                                        "-of", "json", a.ingresso]))["format"]["duration"])
+conta = np.zeros((BH, W), np.int32)
+campioni = 60
+for i in range(campioni):
+    t = durata_tot * (i + 0.5) / campioni
+    b = subprocess.check_output(["ffmpeg", "-nostdin", "-v", "error", "-ss", f"{t:.2f}", "-i", a.ingresso, "-frames:v", "1",
+                                 "-f", "rawvideo", "-pix_fmt", "rgb24", "-"])
+    fr = np.frombuffer(b, np.uint8).reshape(H, W, 3)
+    conta += bianco(fr[Y0:Y1])
+FISSO = conta >= int(campioni * 0.5)
+
+
+def maschera(fascia: np.ndarray) -> np.ndarray:
+    """Pixel di testo: quasi bianchi, poco saturi e NON bianchi fissi; allargati di 5 px per bordo e ombra."""
+    m = bianco(fascia) & ~FISSO
     m[:, : X0] = False
     m[:, X1:] = False
-    k = 5
+    k = 7
     out = m.copy()
     for dy in range(-k, k + 1):
         for dx in range(-k, k + 1):
@@ -88,8 +107,7 @@ while centro < len(buffer):
                 if prendi.any():
                     nuova[prendi] = f2[prendi]
                     rimasti &= ~prendi
-    if rimasti.any():  # nessun fotogramma libero vicino: sfumatura dai bordi
-        nuova[rimasti] = np.median(fascia[~m], axis=0).astype(np.uint8) if (~m).any() else nuova[rimasti]
+    # Nessun fotogramma libero nella finestra: il pixel è bianco per tutto il tempo, quindi è sfondo e resta com'è
     out = fr.copy()
     out[Y0:Y1] = nuova
     scrittore.stdin.write(out.tobytes())
