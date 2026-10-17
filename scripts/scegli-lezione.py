@@ -15,7 +15,7 @@ def stato(i):
 
 
 if "--resto" in sys.argv:
-    attivi = {"da_montare", "in_preparazione", "da_verificare", "dati_pronti", "in_render"}
+    attivi = {"da_montare", "da_rivedere", "in_preparazione", "da_verificare", "dati_pronti", "in_render"}
     print(sum(1 for l in cat if stato(l["id"]) in attivi))
 else:
     pronte = [l["id"] for l in cat if stato(l["id"]) == "dati_pronti"]

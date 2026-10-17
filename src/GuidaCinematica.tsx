@@ -77,7 +77,40 @@ export type Sottotitolo = { readonly da: number; readonly a: number; readonly te
 export type Capitolo = { readonly da: number; readonly etichetta: string; readonly tono: Tono };
 type Punto = readonly [number, number];
 export type Grafica =
-  | { readonly tipo: "angolo"; readonly da: number; readonly a: number; readonly spalla: Punto; readonly etichetta: string }
+  | {
+      // Angolo con vertice in "spalla" (qualsiasi articolazione). Direzioni in gradi sullo schermo:
+      // 0 = destra, 90 = giù, 180 = sinistra, 270 = su. Default: riferimento giù, braccio a destra (90°).
+      readonly tipo: "angolo";
+      readonly da: number;
+      readonly a: number;
+      readonly spalla: Punto;
+      readonly etichetta: string;
+      readonly riferimento?: number;
+      readonly braccio?: number;
+      readonly lunghezza?: number;
+    }
+  | {
+      // Richiamo scritto agganciato a un punto del corpo, per misure che la camera non può mostrare
+      // (es. angoli in profondità con ripresa frontale): pallino sul punto + etichetta accanto
+      readonly tipo: "nota";
+      readonly da: number;
+      readonly a: number;
+      readonly punto: Punto;
+      readonly etichetta: string;
+      readonly tono?: "accento" | "errore" | "giusto";
+      readonly lato?: "dx" | "sx";
+    }
+  | {
+      // Linea di riferimento tra due punti del corpo (es. braccio perpendicolare, gomito vicino al fianco)
+      readonly tipo: "linea";
+      readonly da: number;
+      readonly a: number;
+      readonly p1: Punto;
+      readonly p2: Punto;
+      readonly tono?: "accento" | "errore" | "giusto";
+      readonly tratteggiata?: boolean;
+      readonly etichetta?: string;
+    }
   | { readonly tipo: "tenuta"; readonly da: number; readonly a: number; readonly vicino: Punto; readonly etichetta: string }
   | {
       readonly tipo: "asse";
@@ -355,27 +388,44 @@ const Titolo: React.FC<{ readonly fase: string; readonly titolo: string; readonl
   );
 };
 
+// Tempo del girato → tempo del montaggio; un tempo che cade in un taglio va all'inizio del tratto successivo
+const rawAMontaggio = (raw: number, tratti: readonly Tratto[]) => {
+  let m = 0;
+  for (const tr of tratti) {
+    if (raw >= tr.a) {
+      m += tr.a - tr.da;
+    } else {
+      if (raw > tr.da) m += raw - tr.da;
+      break;
+    }
+  }
+  return m;
+};
+
 const Capitoli: React.FC<{
-  readonly raw: number;
+  readonly t: number;
   readonly lista: readonly Capitolo[];
-  readonly fineRaw: number;
+  readonly tratti: readonly Tratto[];
   readonly stile: NomeStile;
-}> = ({ raw, lista, fineRaw, stile }) => {
+}> = ({ t, lista, tratti, stile }) => {
   const st = STILI[stile];
-  const i = lista.reduce((acc, c, k) => (raw >= c.da ? k : acc), -1);
+  // Tutto sul tempo del MONTAGGIO: i segmenti sono lunghi quanto quello che si vede e si riempiono in modo continuo
+  const inizi = lista.map((c) => rawAMontaggio(c.da, tratti));
+  const fineM = durataMontaggio(tratti);
+  const i = inizi.reduce((acc, x, k) => (t >= x ? k : acc), -1);
 
   // Stile "parola": barra a segmenti in alto, sempre visibile dopo il titolo, con la parte in corso che si riempie
   if (stile === "parola") {
-    const k = interpolate(raw, [lista[0].da - 0.5, lista[0].da], [0, 1], CLAMP);
-    const inizio = lista[0].da;
-    const totale = fineRaw - inizio;
+    const k = interpolate(t, [inizi[0] - 0.5, inizi[0]], [0, 1], CLAMP);
+    const totale = fineM - inizi[0];
     return (
       <div style={{ position: "absolute", left: 72, right: 72, top: 54, display: "flex", gap: 10, opacity: k }}>
         {lista.map((c, n) => {
-          const fine = n + 1 < lista.length ? lista[n + 1].da : fineRaw;
-          const riempito = interpolate(raw, [c.da, fine], [0, 1], CLAMP);
+          const da = inizi[n];
+          const fine = n + 1 < lista.length ? inizi[n + 1] : fineM;
+          const riempito = interpolate(t, [da, fine], [0, 1], CLAMP);
           return (
-            <div key={c.da} style={{ flexGrow: (fine - c.da) / totale, flexBasis: 0 }}>
+            <div key={c.da} style={{ flexGrow: Math.max(fine - da, 0.01) / totale, flexBasis: 0 }}>
               <div style={{ height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.3)", overflow: "hidden" }}>
                 <div style={{ width: `${riempito * 100}%`, height: "100%", backgroundColor: st.linea[c.tono] }} />
               </div>
@@ -401,7 +451,7 @@ const Capitoli: React.FC<{
 
   if (i < 0) return null;
   const c = lista[i];
-  const k = interpolate(raw, [c.da, c.da + 0.35], [0, 1], { ...CLAMP, easing: morbido });
+  const k = interpolate(t, [inizi[i], inizi[i] + 0.35], [0, 1], { ...CLAMP, easing: morbido });
   const chiaro = stile === "chiaro";
   return (
     <div
@@ -504,26 +554,71 @@ const Grafiche: React.FC<{
         }
         if (g.tipo === "angolo") {
           const [sx, sy] = aSchermo(cam, g.spalla);
-          const L = 300 * cam.z;
+          const L = (g.lunghezza ?? 300) * cam.z;
           const r = 90 * cam.z;
+          const R = ((g.riferimento ?? 90) * Math.PI) / 180;
+          const delta = ((((g.braccio ?? 0) - (g.riferimento ?? 90) + 540) % 360) - 180) * (Math.PI / 180);
+          const B = R + delta * traccia;
+          const fineB = R + delta;
+          const bis = R + delta / 2;
+          const lx = sx + Math.cos(bis) * r * 1.55;
+          const ly = sy + Math.sin(bis) * r * 1.55;
           return (
             <AbsoluteFill key={g.da} style={{ opacity: k }}>
               <svg width={1920} height={1080} style={{ position: "absolute" }}>
-                <line x1={sx} y1={sy} x2={sx} y2={sy + L} stroke="white" strokeWidth={4} strokeDasharray="10 10" opacity={0.8} />
-                <line x1={sx} y1={sy} x2={sx + L * traccia} y2={sy} stroke={accento} strokeWidth={5} strokeLinecap="round" />
+                <line x1={sx} y1={sy} x2={sx + Math.cos(R) * L} y2={sy + Math.sin(R) * L} stroke="white" strokeWidth={4} strokeDasharray="10 10" opacity={0.8} />
+                <line x1={sx} y1={sy} x2={sx + Math.cos(fineB) * L * traccia} y2={sy + Math.sin(fineB) * L * traccia} stroke={accento} strokeWidth={5} strokeLinecap="round" />
                 <path
-                  d={`M ${sx} ${sy + r} A ${r} ${r} 0 0 0 ${sx + r} ${sy}`}
+                  d={`M ${sx + Math.cos(R) * r} ${sy + Math.sin(R) * r} A ${r} ${r} 0 0 ${delta > 0 ? 1 : 0} ${sx + Math.cos(B) * r} ${sy + Math.sin(B) * r}`}
                   fill="none"
                   stroke={accento}
                   strokeWidth={5}
                   strokeLinecap="round"
-                  pathLength={1}
-                  strokeDasharray="1 1"
-                  strokeDashoffset={1 - traccia}
                 />
                 <circle cx={sx} cy={sy} r={8} fill={accento} />
               </svg>
-              <Pillola x={sx + r * 1.15} y={sy + r * 1.15} tono="accento" testo={g.etichetta} k={k} stile={stile} />
+              <Pillola x={lx} y={ly} tono="accento" testo={g.etichetta} k={k} stile={stile} ancora={Math.cos(bis) < -0.3 ? "dx" : "sx"} />
+            </AbsoluteFill>
+          );
+        }
+        if (g.tipo === "nota") {
+          const [px, py] = aSchermo(cam, g.punto);
+          const tono = g.tono ?? "accento";
+          const sx = g.lato === "sx";
+          return (
+            <AbsoluteFill key={g.da} style={{ opacity: k }}>
+              <svg width={1920} height={1080} style={{ position: "absolute" }}>
+                <circle cx={px} cy={py} r={9} fill={stile.linea[tono]} />
+                <circle cx={px} cy={py} r={18} fill="none" stroke={stile.linea[tono]} strokeWidth={3} opacity={0.6} />
+              </svg>
+              <Pillola x={sx ? px - 30 : px + 30} y={py} tono={tono} testo={g.etichetta} k={k} stile={stile} ancora={sx ? "dx" : "sx"} />
+            </AbsoluteFill>
+          );
+        }
+        if (g.tipo === "linea") {
+          const [x1, y1] = aSchermo(cam, g.p1);
+          const [x2, y2] = aSchermo(cam, g.p2);
+          const tono = g.tono ?? "accento";
+          const colore = stile.linea[tono];
+          return (
+            <AbsoluteFill key={g.da} style={{ opacity: k }}>
+              <svg width={1920} height={1080} style={{ position: "absolute" }}>
+                <line
+                  x1={x1}
+                  y1={y1}
+                  x2={x1 + (x2 - x1) * traccia}
+                  y2={y1 + (y2 - y1) * traccia}
+                  stroke={colore}
+                  strokeWidth={5}
+                  strokeLinecap="round"
+                  strokeDasharray={g.tratteggiata ? "14 12" : undefined}
+                />
+                <circle cx={x1} cy={y1} r={7} fill={colore} />
+                <circle cx={x2} cy={y2} r={7} fill={colore} opacity={traccia} />
+              </svg>
+              {g.etichetta && (
+                <Pillola x={Math.max(x1, x2) + 24} y={(y1 + y2) / 2} tono={tono} testo={g.etichetta} k={k} stile={stile} />
+              )}
             </AbsoluteFill>
           );
         }
@@ -677,7 +772,6 @@ export const GuidaCinematica: React.FC<GuidaCinematicaProps> = (props) => {
   const raw = montaggioARaw(t, props.tratti);
   const cam = raw === null ? null : camera(raw, frame, props.piani);
   const stile = STILI[props.stile];
-  const fineRaw = props.tratti[props.tratti.length - 1].a;
 
   // Ogni tratto: stesso file, tagliato al punto giusto
   let base = 0;
@@ -724,7 +818,7 @@ export const GuidaCinematica: React.FC<GuidaCinematicaProps> = (props) => {
             <AbsoluteFill style={{ background: "linear-gradient(to bottom, rgba(7,22,44,0.6), rgba(7,22,44,0.28) 11%, transparent 20%)" }} />
           )}
           <Grafiche raw={raw} cam={cam} lista={props.grafiche} stile={stile} />
-          <Capitoli raw={raw} lista={props.capitoli} fineRaw={fineRaw} stile={props.stile} />
+          <Capitoli t={t} lista={props.capitoli} tratti={props.tratti} stile={props.stile} />
           <Titolo fase={props.fase} titolo={props.titolo} t={t} stile={props.stile} />
           <Sottotitoli raw={raw} lista={props.sottotitoli} voce={props.paroleVoce} stile={props.stile} />
         </>
