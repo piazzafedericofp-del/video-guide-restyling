@@ -14,3 +14,5 @@ while read -r NOME DIM; do
   gh release download restaurati -R "$REPO" -p "$NOME" -D "$DEST/$GUIDA" --clobber &&
     [ "$(stat -f %z "$F")" = "$DIM" ] && echo "$(date '+%F %T') scaricato $NOME"
 done
+
+exit 0
