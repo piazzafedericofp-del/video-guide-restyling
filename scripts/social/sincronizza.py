@@ -13,6 +13,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from dashboard import chiama  # noqa: E402
 
+avvisi = 0
+
 media = Path(sys.argv[1])
 radice = media / "social" / "lavori"
 radice.mkdir(parents=True, exist_ok=True)
@@ -39,9 +41,19 @@ for pid, l in lavori.items():
     (d / "lavoro.json").write_text(json.dumps(l, ensure_ascii=False, indent=1))
     stato_f.write_text("da_fare")
     (d / "tentativi").write_text("0")
+    for vecchio in ("nota.txt", "nota-inviata"):
+        (d / vecchio).unlink(missing_ok=True)
 for d in radice.iterdir():
     if d.is_dir() and d.name not in lavori and (d / "stato").exists():
-        if (d / "stato").read_text().strip() in ("da_fare", "in_preparazione", "dati_pronti", "errore"):
+        if (d / "stato").read_text().strip() in ("da_fare", "in_preparazione", "dati_pronti", "errore", "bloccato"):
             (d / "stato").write_text("annullato")
             annullati += 1
+# Note della routine per Federico (lavoro bloccato: tema senza fonti, clip inadatta…): una volta sola, nella scheda del post
+for d in radice.iterdir():
+    nota = d / "nota.txt"
+    if d.is_dir() and nota.exists() and not (d / "nota-inviata").exists() and d.name in lavori:
+        chiama(f"/api/generatore/post/{d.name}", "POST", {"nota_routine": nota.read_text()[:500]})
+        (d / "nota-inviata").write_text("1")
+        avvisi += 1
+print(f"note inviate: {avvisi}")
 print(f"lavori in dashboard: {len(lavori)} · nuovi {nuovi} · da rifare {rifatti} · annullati {annullati}")
