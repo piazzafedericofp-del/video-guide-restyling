@@ -132,7 +132,9 @@ jobs:
           DUR=$(jq -r .durata "$D")
           ffmpeg -nostdin -v error -f lavfi -i "color=black:s=1080x1920:r=30:d=$DUR" -c:v libx264 -pix_fmt yuv420p public/_nero.mp4
           node scripts/social/misura-reel.mjs out/misura
-          python3 scripts/social/controlla-zone.py out/misura | tail -3
+          # Esito completo solo nel progetto privato (errore.txt): nei log pubblici niente testi
+          python3 scripts/social/controlla-zone.py out/misura > out/controlli.txt 2>&1 || { echo "Controllo zone: testi fuori zona"; exit 1; }
+          tail -1 out/controlli.txt
 
       - name: Reel · render, musica e copertina
         if: steps.scelta.outputs.formato == 'reel'
@@ -187,8 +189,10 @@ jobs:
           done
           node scripts/social/misura-carosello.mjs Carosello out/consegna/c45
           node scripts/social/misura-carosello.mjs Carosello916 out/consegna/c916
-          python3 scripts/social/controlla-carosello.py out/consegna/c45 | tail -3
-          python3 scripts/social/controlla-carosello.py out/consegna/c916 | tail -3
+          # Esito completo solo nel progetto privato (errore.txt): nei log pubblici niente testi
+          { echo "== 4:5"; python3 scripts/social/controlla-carosello.py out/consegna/c45; } > out/controlli.txt 2>&1 || { echo "Controllo 4:5 non superato"; exit 1; }
+          { echo "== 9:16"; python3 scripts/social/controlla-carosello.py out/consegna/c916; } >> out/controlli.txt 2>&1 || { echo "Controllo 9:16 non superato"; exit 1; }
+          grep "Tutto a posto" out/controlli.txt | sed 's/:.*//' 
           ffmpeg -nostdin -v error -i "out/consegna/c45/slide-%02d.jpg" -vf "scale=270:338,tile=8x1" -frames:v 1 out/foglio.jpg
           (cd out/consegna && zip -qr "../$ID.zip" c45 c916)
 
@@ -214,7 +218,7 @@ jobs:
         run: |
           cd media
           echo -n errore > "social/lavori/$ID/stato"
-          echo "Render fallito: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > "social/lavori/$ID/errore.txt"
+          { echo "Render fallito: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; echo; cat ../codice/out/controlli.txt 2>/dev/null | grep -v " ok$" | tail -40; } > "social/lavori/$ID/errore.txt"
           git add "social/lavori/$ID"; git commit -q -m "social $ID: errore"
           for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
           python3 ../codice/scripts/social/avvisa.py "$ID" "La generazione non è riuscita al primo tentativo: la riprovo da sola al prossimo giro." > /dev/null || true
