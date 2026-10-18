@@ -236,5 +236,5 @@ jobs:
           echo "lavori ancora aperti: $RESTO, giri a vuoto: $ATTESE"
           if [ "$RESTO" != "0" ] && [ "$ATTESE" -lt 6 ]; then
             sleep 240
-            gh workflow run social.yml -R "${{ github.repository }}" -f attese="$ATTESE"
+            gh workflow run social.yml -R "${{ github.repository }}" -f attese="$ATTESE" || echo "Riavvio non riuscito: riparte con il timer"
           fi
