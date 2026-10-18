@@ -165,7 +165,7 @@ const Slide1: React.FC<CaroselloProps> = ({ stile, slide }) => {
             Immagine generata con IA
           </div>
         ) : null}
-        <Cornice n={n} tot={tot} colore="rgba(255,255,255,0.8)" scuro suFoto>
+        <Cornice n={n} tot={tot} colore="#CED3DA" scuro suFoto>
           <div style={{ position: "absolute", left: 90, right: 90, bottom: 140 }}>
             <div style={{ display: "inline-block", background: AMBER_400, color: NAVY_800, fontSize: 30, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", padding: "10px 20px", borderRadius: 8, marginBottom: 30 }}>
               {s.occhiello}
@@ -175,7 +175,7 @@ const Slide1: React.FC<CaroselloProps> = ({ stile, slide }) => {
             </div>
             <div style={{ color: "#E2E8F0", fontSize: 36, fontWeight: 500, lineHeight: 1.35, marginTop: 30 }}>{s.sotto}</div>
           </div>
-          <div style={{ position: "absolute", right: 90, top: 80, color: "white", fontSize: 30, fontWeight: 700, background: "rgba(11,36,71,0.6)", padding: "10px 22px", borderRadius: 40 }}>Scorri →</div>
+          <div style={{ position: "absolute", right: 90, top: 80, color: "white", fontSize: 30, fontWeight: 700, background: "rgba(11,36,71,0.75)", padding: "10px 22px", borderRadius: 40 }}>Scorri →</div>
         </Cornice>
       </AbsoluteFill>
     );
