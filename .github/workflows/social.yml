@@ -1,0 +1,236 @@
+# Reel e caroselli di @fisioconfede, un contenuto alla volta (skill reel-social e carosello-social).
+# 1. Porta i lavori della dashboard nel progetto privato (media/social/lavori).
+# 2. Se la routine Claude ha preparato i dati di un lavoro ("dati_pronti"): render, controlli automatici
+#    (zone libere dei social, contrasto, margini), musica, consegna alla dashboard ("Da approvare") e copia
+#    di sicurezza nella release "social-finiti". Nei log non compare nessun testo dei contenuti.
+name: Render social
+
+on:
+  schedule:
+    - cron: "7,27,47 * * * *"
+  workflow_dispatch:
+    inputs:
+      lavoro:
+        description: "id del post (vuoto = il prossimo con i dati pronti)"
+        required: false
+      attese:
+        description: "giri consecutivi senza lavoro (la catena si ferma dopo 6)"
+        required: false
+        default: "0"
+
+concurrency:
+  group: social
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: read
+
+env:
+  GH_TOKEN: ${{ secrets.MEDIA_TOKEN }}
+  GENERATORE_TOKEN: ${{ secrets.GENERATORE_TOKEN }}
+  MEDIA_REPO: piazzafedericofp-del/video-guide-media
+
+jobs:
+  social:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Progetto privato (solo la parte social)
+        uses: actions/checkout@v4
+        with:
+          repository: piazzafedericofp-del/video-guide-media
+          token: ${{ secrets.MEDIA_TOKEN }}
+          path: media
+          sparse-checkout: |
+            social/lavori
+            social/ritratto.png
+            social/musica.json
+
+      - name: Codice
+        uses: actions/checkout@v4
+        with:
+          path: codice
+
+      - name: Lavori dalla dashboard
+        run: |
+          python3 codice/scripts/social/sincronizza.py media
+          cd media
+          git config user.name "render-social"; git config user.email "render@users.noreply.github.com"
+          git add -A social; git diff --cached --quiet || git commit -q -m "social: lavori dalla dashboard"
+          for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
+
+      - name: Scegli il lavoro
+        id: scelta
+        run: |
+          ID="${{ github.event.inputs.lavoro }}"
+          [ -n "$ID" ] || ID=$(python3 codice/scripts/social/scegli.py media)
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+          if [ -n "$ID" ]; then
+            echo "formato=$(jq -r .formato "media/social/lavori/$ID/dati.json")" >> "$GITHUB_OUTPUT"
+            echo "Lavoro: $ID"
+          else
+            echo "Niente da montare"
+          fi
+
+      - name: Segna "in_render"
+        if: steps.scelta.outputs.id != ''
+        env:
+          ID: ${{ steps.scelta.outputs.id }}
+        run: |
+          cd media
+          echo -n in_render > "social/lavori/$ID/stato"
+          git add "social/lavori/$ID/stato"; git commit -q -m "social $ID: in render"
+          for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
+
+      - uses: actions/setup-node@v4
+        if: steps.scelta.outputs.id != ''
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: codice/package-lock.json
+
+      - name: Strumenti
+        if: steps.scelta.outputs.id != ''
+        working-directory: codice
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg jq libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libgbm1 \
+            libxcomposite1 libxdamage1 libxrandr2 libpango-1.0-0 libcairo2 libasound2t64 libcups2 >/dev/null
+          pip install -q pillow numpy librosa
+          npm ci --no-audit --no-fund
+          npx remotion browser ensure
+
+      # ---------------- Reel ----------------
+      - name: Reel · clip, colore e misura dei testi
+        if: steps.scelta.outputs.formato == 'reel'
+        env:
+          ID: ${{ steps.scelta.outputs.id }}
+        working-directory: codice
+        run: |
+          set -euo pipefail
+          D="../media/social/lavori/$ID/dati.json"
+          cp "$D" public/dati.json
+          CLIP=$(jq -r .clip "$D")
+          mkdir -p girato out
+          gh release download clip-social -R "$MEDIA_REPO" -p "$CLIP.*" -D girato < /dev/null
+          SRC=$(ls girato/* | head -1)
+          # Tagli facoltativi (riordino delle ripetizioni per far coincidere testi e movimento): [[da, a], …] in secondi della clip
+          N=$(jq '.tagli // [] | length' "$D")
+          COLORE="scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,eq=contrast=1.07:saturation=1.1:gamma=0.97,colorbalance=rs=0.03:bs=-0.03:rm=0.02:bm=-0.02,unsharp=5:5:0.4,fps=30"
+          if [ "$N" -gt 0 ]; then
+            F=""; L=""
+            for ((i=0; i<N; i++)); do
+              DA=$(jq ".tagli[$i][0]" "$D"); A=$(jq ".tagli[$i][1]" "$D")
+              F="$F[0:v]trim=$DA:$A,setpts=PTS-STARTPTS[t$i];"; L="$L[t$i]"
+            done
+            ffmpeg -nostdin -v error -i "$SRC" -filter_complex "${F}${L}concat=n=$N:v=1:a=0,$COLORE[v]" -map "[v]" -an -c:v libx264 -crf 14 -preset fast -pix_fmt yuv420p public/clip.mp4
+          else
+            ffmpeg -nostdin -v error -i "$SRC" -an -vf "$COLORE" -c:v libx264 -crf 14 -preset fast -pix_fmt yuv420p public/clip.mp4
+          fi
+          rm -rf girato
+          DUR=$(jq -r .durata "$D")
+          ffmpeg -nostdin -v error -f lavfi -i "color=black:s=1080x1920:r=30:d=$DUR" -c:v libx264 -pix_fmt yuv420p public/_nero.mp4
+          node scripts/social/misura-reel.mjs out/misura
+          python3 scripts/social/controlla-zone.py out/misura | tail -3
+
+      - name: Reel · render, musica e copertina
+        if: steps.scelta.outputs.formato == 'reel'
+        env:
+          ID: ${{ steps.scelta.outputs.id }}
+        working-directory: codice
+        run: |
+          set -euo pipefail
+          D="../media/social/lavori/$ID/dati.json"
+          npx remotion render src/social/index.ts Reel out/muto.mp4 --codec=h264 --crf=18 --log=error
+          DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 out/muto.mp4)
+          BRANO=$(jq -r .brano "$D")
+          gh release download musica-social -R "$MEDIA_REPO" -p "$BRANO" -O brano.mp3 < /dev/null
+          INIZIO=$(jq -r '.inizio_brano // empty' "$D")
+          [ -n "$INIZIO" ] || INIZIO=$(python3 scripts/social/taglio-musica.py brano.mp3 "$DUR" | cut -d' ' -f1)
+          FINE=$(python3 -c "print(max(0, $DUR - 1.2))")
+          ffmpeg -nostdin -v error -ss "$INIZIO" -t "$DUR" -i brano.mp3 -af "afade=t=in:d=0.15,afade=t=out:st=$FINE:d=1.2,loudnorm=I=-14:TP=-1.5:LRA=7" -ar 48000 -ac 2 musica.wav
+          mkdir -p out/consegna
+          ffmpeg -nostdin -v error -i out/muto.mp4 -i musica.wav -map 0:v -map 1:a -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart out/consegna/video.mp4
+          # Copertina: fotogramma del gancio (Instagram la usa nella griglia del profilo)
+          ffmpeg -nostdin -v error -ss "$(jq -r '.copertina // 1.2' "$D")" -i out/consegna/video.mp4 -frames:v 1 -q:v 2 out/consegna/copertina.jpg
+          ffmpeg -nostdin -v error -i out/consegna/video.mp4 -vf "fps=1/2,scale=270:-1,tile=8x1" -frames:v 1 out/foglio.jpg
+          cp out/consegna/video.mp4 "out/$ID.mp4"
+
+      # ---------------- Carosello ----------------
+      - name: Carosello · foto, render e controlli
+        if: steps.scelta.outputs.formato == 'carosello'
+        env:
+          ID: ${{ steps.scelta.outputs.id }}
+        working-directory: codice
+        run: |
+          set -euo pipefail
+          D="../media/social/lavori/$ID/dati.json"
+          cp "$D" public/dati.json
+          cp ../media/social/ritratto.png public/ritratto.png
+          mkdir -p girato out/consegna
+          # Foto: fotogramma di un girato delle guide o di una clip dell'archivio, oppure immagine IA caricata in dashboard
+          N=$(jq '.foto | length' "$D")
+          for ((i=0; i<N; i++)); do
+            FILE=$(jq -r ".foto[$i].file" "$D"); SORG=$(jq -r ".foto[$i].sorgente" "$D")
+            CROP=$(jq -r ".foto[$i].crop // empty" "$D"); SEC=$(jq -r ".foto[$i].secondo // 0" "$D")
+            case "$SORG" in
+              r2:*) python3 -c "import sys; sys.path.insert(0,'scripts/social'); from dashboard import scarica; scarica(sys.argv[1], 'girato/ia')" "${SORG#r2:}"
+                    ffmpeg -nostdin -v error -i girato/ia -vf "${CROP:+crop=$CROP,}scale=1080:840:force_original_aspect_ratio=increase,crop=1080:840" -q:v 2 "public/$FILE" ;;
+              girati:*|clip:*)
+                    REL=girati; PAT="${SORG#girati:}"; [ "${SORG%%:*}" = clip ] && { REL=clip-social; PAT="${SORG#clip:}.*"; }
+                    gh release download "$REL" -R "$MEDIA_REPO" -p "$PAT" -D girato --clobber < /dev/null
+                    SRC=$(ls -t girato/* | head -1)
+                    ffmpeg -nostdin -v error -ss "$SEC" -i "$SRC" -frames:v 1 -vf "${CROP:+crop=$CROP,}scale=1080:840:force_original_aspect_ratio=increase,crop=1080:840,eq=contrast=1.07:saturation=1.1:gamma=0.97,colorbalance=rs=0.03:bs=-0.03:rm=0.02:bm=-0.02,unsharp=5:5:0.4" -q:v 2 "public/$FILE"
+                    rm -f girato/* ;;
+            esac
+          done
+          node scripts/social/misura-carosello.mjs Carosello out/consegna/c45
+          node scripts/social/misura-carosello.mjs Carosello916 out/consegna/c916
+          python3 scripts/social/controlla-carosello.py out/consegna/c45 | tail -3
+          python3 scripts/social/controlla-carosello.py out/consegna/c916 | tail -3
+          ffmpeg -nostdin -v error -i "out/consegna/c45/slide-%02d.jpg" -vf "scale=270:338,tile=8x1" -frames:v 1 out/foglio.jpg
+          (cd out/consegna && zip -qr "../$ID.zip" c45 c916)
+
+      # ---------------- Consegna ----------------
+      - name: Consegna alla dashboard
+        if: steps.scelta.outputs.id != ''
+        env:
+          ID: ${{ steps.scelta.outputs.id }}
+        run: |
+          set -euo pipefail
+          python3 codice/scripts/social/consegna.py "$ID" codice/out/consegna "media/social/lavori/$ID/dati.json" > /dev/null
+          gh release upload social-finiti codice/out/$ID.* -R "$MEDIA_REPO" --clobber
+          cd media
+          cp ../codice/out/foglio.jpg "social/lavori/$ID/foglio.jpg"
+          echo -n consegnato > "social/lavori/$ID/stato"; rm -f "social/lavori/$ID/errore.txt"
+          git add "social/lavori/$ID"; git commit -q -m "social $ID: consegnato"
+          for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
+
+      - name: Segna errore
+        if: failure() && steps.scelta.outputs.id != ''
+        env:
+          ID: ${{ steps.scelta.outputs.id }}
+        run: |
+          cd media
+          echo -n errore > "social/lavori/$ID/stato"
+          echo "Render fallito: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > "social/lavori/$ID/errore.txt"
+          git add "social/lavori/$ID"; git commit -q -m "social $ID: errore"
+          for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
+          python3 ../codice/scripts/social/avvisa.py "$ID" "La generazione non è riuscita al primo tentativo: la riprovo da sola al prossimo giro." > /dev/null || true
+
+      - name: Avvia il giro successivo della catena
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ID: ${{ steps.scelta.outputs.id }}
+        run: |
+          git -C media pull -q || true
+          RESTO=$(python3 codice/scripts/social/scegli.py media --resto)
+          ATTESE="${{ github.event.inputs.attese }}"; ATTESE=${ATTESE:-0}
+          if [ -n "$ID" ]; then ATTESE=0; else ATTESE=$((ATTESE+1)); fi
+          echo "lavori ancora aperti: $RESTO, giri a vuoto: $ATTESE"
+          if [ "$RESTO" != "0" ] && [ "$ATTESE" -lt 6 ]; then
+            sleep 240
+            gh workflow run social.yml -R "${{ github.repository }}" -f attese="$ATTESE"
+          fi
