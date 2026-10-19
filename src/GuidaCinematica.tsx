@@ -121,7 +121,9 @@ export type Grafica =
       readonly giusto: boolean;
       readonly etichetta: string;
     }
-  | { readonly tipo: "anatomia"; readonly da: number; readonly a: number; readonly immagine: string; readonly etichetta: string };
+  | { readonly tipo: "anatomia"; readonly da: number; readonly a: number; readonly immagine: string; readonly etichetta: string }
+  // Concetto chiave dei video parlati (introduzioni e chiusure): riquadro navy a sinistra, sul muro
+  | { readonly tipo: "punto"; readonly da: number; readonly a: number; readonly etichetta: string; readonly testo: string; readonly tono?: Tono; readonly y?: number; readonly larghezza?: number };
 
 export type GuidaCinematicaProps = {
   readonly stile: NomeStile;
@@ -140,8 +142,11 @@ export type GuidaCinematicaProps = {
   readonly grafiche: readonly Grafica[];
   readonly fase: string;
   readonly titolo: string;
-  readonly dosaggio: { readonly grande: string; readonly sotto: string; readonly consigli: readonly string[] };
+  // etichetta: scritta sopra il numero grande (default "Dosaggio"; nei video parlati es. "Prossima fase")
+  readonly dosaggio: { readonly grande: string; readonly sotto: string; readonly consigli: readonly string[]; readonly etichetta?: string };
   readonly durataFinale: number;
+  // Video parlati: scheda navy iniziale (copre il titolo impresso nei vecchi montati) al posto del titolo in basso
+  readonly apertura?: { readonly fino: number; readonly etichetta: string; readonly grande: string; readonly sotto: string };
 };
 
 // Tempo del montaggio (s) → tempo del girato (s); null nel finale
@@ -409,6 +414,8 @@ const Capitoli: React.FC<{
   readonly stile: NomeStile;
 }> = ({ t, lista, tratti, stile }) => {
   const st = STILI[stile];
+  // Video parlati brevi (chiusure): nessun capitolo, nessuna barra
+  if (lista.length === 0) return null;
   // Tutto sul tempo del MONTAGGIO: i segmenti sono lunghi quanto quello che si vede e si riempiono in modo continuo
   const inizi = lista.map((c) => rawAMontaggio(c.da, tratti));
   const fineM = durataMontaggio(tratti);
@@ -548,6 +555,43 @@ const Grafiche: React.FC<{
                 }}
               >
                 {g.etichetta}
+              </div>
+            </div>
+          );
+        }
+        if (g.tipo === "punto") {
+          const e = interpolate(raw, [g.da, g.da + 0.5], [0, 1], { ...CLAMP, easing: morbido });
+          return (
+            <div
+              key={g.da}
+              style={{
+                position: "absolute",
+                left: 96,
+                top: g.y ?? 540,
+                width: g.larghezza ?? 640,
+                opacity: k,
+                translate: `0 calc(-50% + ${(1 - e) * 24}px)`,
+                backgroundColor: "rgba(11,36,71,0.9)",
+                borderRadius: 28,
+                padding: "26px 36px 34px",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+              }}
+            >
+              <div
+                style={{
+                  display: "inline-block",
+                  fontSize: 28,
+                  fontWeight: 650,
+                  color: "white",
+                  backgroundColor: "#0B6BD3",
+                  borderRadius: 999,
+                  padding: "6px 22px 8px",
+                }}
+              >
+                {g.etichetta}
+              </div>
+              <div style={{ marginTop: 18, fontSize: 56, fontWeight: 800, lineHeight: 1.1, color: "white", letterSpacing: -1 }}>
+                <TestoMarcato testo={g.testo} accento={g.tono && g.tono !== "accento" ? stile.linea[g.tono] : "#FBBF24"} />
               </div>
             </div>
           );
@@ -722,10 +766,12 @@ const Finale: React.FC<{
               opacity: entra(0),
             }}
           >
-            Dosaggio
+            {dosaggio.etichetta ?? "Dosaggio"}
           </div>
         ) : (
-          <div style={{ fontSize: 32, fontWeight: 600, color: chiaro ? "#0B6BD3" : "#FBBF24", opacity: entra(0) }}>Dosaggio</div>
+          <div style={{ fontSize: 32, fontWeight: 600, color: chiaro ? "#0B6BD3" : "#FBBF24", opacity: entra(0) }}>
+            {dosaggio.etichetta ?? "Dosaggio"}
+          </div>
         )}
         <div
           style={{
@@ -760,6 +806,49 @@ const Finale: React.FC<{
             </div>
           ))}
         </div>
+      </AbsoluteFill>
+    </AbsoluteFill>
+  );
+};
+
+const Apertura: React.FC<{ readonly t: number; readonly immagine: string; readonly dati: NonNullable<GuidaCinematicaProps["apertura"]> }> = ({
+  t,
+  immagine,
+  dati,
+}) => {
+  const entra = (r: number) => interpolate(t, [0.1 + r, 0.7 + r], [0, 1], { ...CLAMP, easing: morbido });
+  const fuori = interpolate(t, [dati.fino - 0.35, dati.fino], [1, 0], CLAMP);
+  return (
+    <AbsoluteFill style={{ opacity: fuori }}>
+      <Img src={staticFile(immagine)} style={{ width: 1920, height: 1080, filter: "blur(18px)", scale: "1.08" }} />
+      <AbsoluteFill style={{ backgroundColor: NAVY, opacity: 0.82 }} />
+      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", color: "white", textAlign: "center" }}>
+        <div
+          style={{
+            fontSize: 30,
+            fontWeight: 650,
+            backgroundColor: "#0B6BD3",
+            borderRadius: 999,
+            padding: "8px 26px 10px",
+            opacity: entra(0),
+          }}
+        >
+          {dati.etichetta}
+        </div>
+        <div
+          style={{
+            fontSize: 150,
+            fontWeight: 800,
+            letterSpacing: -5,
+            lineHeight: 1,
+            marginTop: 14,
+            opacity: entra(0.1),
+            translate: `0 ${(1 - entra(0.1)) * 30}px`,
+          }}
+        >
+          {dati.grande}
+        </div>
+        <div style={{ fontSize: 40, fontWeight: 500, marginTop: 18, color: "#FBBF24", opacity: entra(0.2) }}>{dati.sotto}</div>
       </AbsoluteFill>
     </AbsoluteFill>
   );
@@ -819,7 +908,11 @@ export const GuidaCinematica: React.FC<GuidaCinematicaProps> = (props) => {
           )}
           <Grafiche raw={raw} cam={cam} lista={props.grafiche} stile={stile} />
           <Capitoli t={t} lista={props.capitoli} tratti={props.tratti} stile={props.stile} />
-          <Titolo fase={props.fase} titolo={props.titolo} t={t} stile={props.stile} />
+          {props.apertura ? (
+            t < props.apertura.fino && <Apertura t={t} immagine={props.ultimoFotogramma} dati={props.apertura} />
+          ) : (
+            <Titolo fase={props.fase} titolo={props.titolo} t={t} stile={props.stile} />
+          )}
           <Sottotitoli raw={raw} lista={props.sottotitoli} voce={props.paroleVoce} stile={props.stile} />
         </>
       )}
