@@ -20,7 +20,7 @@ const reelVuoto: EsercizioStrutturaProps = {
   invito: { da: 4, testo: "", icona: "📩" },
   archi: [], firma: "@fisioconfede", carattere: "inter",
 };
-const caroselloVuoto: CaroselloProps = { stile: "foto", slide: [{ tipo: "testo", titolo: "", corpo: "" }], avanzamento: "barra" };
+const caroselloVuoto: CaroselloProps = { stile: "foto", slide: [{ tipo: "testo", titolo: "", corpo: "" }], avanzamento: "barra", firma: true };
 
 const leggi = async <T,>() => (await fetch(staticFile("dati.json")).then((r) => r.json())) as T;
 
@@ -62,7 +62,7 @@ export const RootSocial: React.FC = () => (
           try {
             const d = await leggi<DatiCarosello>();
             return {
-              props: { stile: "foto" as const, avanzamento: "barra" as const, slide: d.props.slide, verticale, controllo: props.controllo },
+              props: { stile: "foto" as const, avanzamento: "barra" as const, firma: true, slide: d.props.slide, verticale, controllo: props.controllo },
               durationInFrames: d.props.slide.length,
             };
           } catch {
