@@ -11,7 +11,8 @@ BASE="$HOME/Desktop/VIDEO GUIDE"
 # nome release (es. spalla-subacuta-06-rotazione-dorsale-seduto.mp4) -> cartella e nome locale
 destinazione() {
   case "$1" in
-    spalla-acuta-*)      echo "$BASE/GUIDA DOLORE DI SPALLA/video definitivi/1 - Fase acuta|${1#spalla-acuta-}" ;;
+    spalla-guida-*)      echo "$BASE/GUIDA DOLORE DI SPALLA/video definitivi|${1#spalla-guida-}" ;;
+    spalla-acuta-*)     echo "$BASE/GUIDA DOLORE DI SPALLA/video definitivi/1 - Fase acuta|${1#spalla-acuta-}" ;;
     spalla-subacuta-*)   echo "$BASE/GUIDA DOLORE DI SPALLA/video definitivi/2 - Fase subacuta|${1#spalla-subacuta-}" ;;
     spalla-guarigione-*) echo "$BASE/GUIDA DOLORE DI SPALLA/video definitivi/3 - Fase guarigione|${1#spalla-guarigione-}" ;;
     schiena-sblocco-*)   echo "$BASE/GUIDA SBLOCCO SCHIENA DI EMERGENZA/video definitivi|${1#schiena-sblocco-}" ;;
