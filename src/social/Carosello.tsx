@@ -22,7 +22,10 @@ export type Stile = "sito" | "navy" | "foto";
 export type NomeIcona = "letto" | "cammina" | "posizione" | "casa" | "pillola" | "clessidra" | "pesi" | "telefono";
 export type Illustrazione =
   | { tipo: "pittogramma"; su: number; totale: number }
-  | { tipo: "confronto"; a: { icona: NomeIcona; testo: string }; b: { icona: NomeIcona; testo: string; esito: string } };
+  | { tipo: "confronto"; a: { icona: NomeIcona; testo: string; esito?: string }; b: { icona: NomeIcona; testo: string; esito: string } }
+  // Risultato che cambia nel tempo (fascite 23/10: "meglio prima, non di più" non si capiva con il confronto):
+  // una scheda per controllo, i due gruppi in ogni scheda, evidenziato quello che sta meglio (nessuno se pari).
+  | { tipo: "tempi"; a: string; b: string; tappe: { quando: string; esito: string; meglio?: "a" | "b" }[] };
 
 // Icone a tratto in stile Lucide (viewBox 24), disegnate qui per non aggiungere dipendenze.
 const TRATTI: Record<NomeIcona, React.ReactNode> = {
@@ -73,7 +76,7 @@ const Avanzamento = createContext<{ barra: boolean; scuro: boolean; firma: boole
 // Ritratto intero (ritratto.png ha lo sfondo bianco): in una tessera bianca, si vede su bianco e su sabbia.
 // Federico 23/10: il solo viso nel cerchio "è brutto", vuole la figura intera.
 const MiniRitratto: React.FC = () => (
-  <div style={{ width: 118, height: 152, borderRadius: 14, overflow: "hidden", background: "white", border: "2px solid #E2E8F0", flex: "0 0 auto" }}>
+  <div data-ostacolo style={{ width: 118, height: 152, borderRadius: 14, overflow: "hidden", background: "white", border: "2px solid #E2E8F0", flex: "0 0 auto" }}>
     <Img src={staticFile("ritratto.png")} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 100%" }} />
   </div>
 );
@@ -96,9 +99,19 @@ const Barra: React.FC<{ n: number; tot: number; scuro: boolean; suFoto?: boolean
   </div>
 );
 
+// Ritratti della firma: nessun testo deve finirci sopra (fascite 23/10: la fonte toccava la tessera).
+const misuraOstacoli = () =>
+  Array.from(document.querySelectorAll("[data-ostacolo]")).map((e) => {
+    const r = e.getBoundingClientRect();
+    return { x: r.left, y: r.top, w: r.width, h: r.height };
+  });
+
 // Raccoglie ogni testo visibile: dimensione, peso, colore e riquadro reale delle lettere.
 const misuraTesti = () => {
-  const voci: { testo: string; px: number; peso: number; colore: string; x: number; y: number; w: number; h: number }[] = [];
+  const voci: { testo: string; px: number; peso: number; colore: string; x: number; y: number; w: number; h: number; blocco: number }[] = [];
+  // blocco: il primo antenato non in linea; testi dello stesso blocco (righe di un titolo, "Fonte:" + nome)
+  // non contano come sovrapposti nel controllo.
+  const blocchi = new Map<Element, number>();
   const giro = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   let nodo = giro.nextNode();
   while (nodo) {
@@ -110,7 +123,10 @@ const misuraTesti = () => {
       range.selectNodeContents(nodo);
       const r = range.getBoundingClientRect();
       if (r.width > 0) {
-        voci.push({ testo: testo.slice(0, 40), px: parseFloat(st.fontSize), peso: parseInt(st.fontWeight, 10), colore: st.color, x: r.left, y: r.top, w: r.width, h: r.height });
+        let b: Element = el;
+        while (b.parentElement && getComputedStyle(b).display === "inline") b = b.parentElement;
+        if (!blocchi.has(b)) blocchi.set(b, blocchi.size);
+        voci.push({ testo: testo.slice(0, 40), px: parseFloat(st.fontSize), peso: parseInt(st.fontWeight, 10), colore: st.color, x: r.left, y: r.top, w: r.width, h: r.height, blocco: blocchi.get(b)! });
       }
     }
     nodo = giro.nextNode();
@@ -171,7 +187,7 @@ export const Carosello: React.FC<CaroselloProps> = (props) => {
   useEffect(() => {
     if (attesa === null) return;
     document.fonts.ready.then(() => {
-      console.log("CONTROLLO " + JSON.stringify({ slide: frame, scala: props.verticale ? SCALA_VERTICALE : 1, verticale: !!props.verticale, voci: misuraTesti() }));
+      console.log("CONTROLLO " + JSON.stringify({ slide: frame, scala: props.verticale ? SCALA_VERTICALE : 1, verticale: !!props.verticale, voci: misuraTesti(), ostacoli: misuraOstacoli() }));
       continueRender(attesa);
     });
   }, [attesa, frame, props.verticale]);
@@ -278,6 +294,7 @@ const Slide1: React.FC<CaroselloProps> = ({ stile, slide }) => {
   if (s.tipo === "dato") {
     const pitto = s.illustrazione?.tipo === "pittogramma" ? s.illustrazione : null;
     const conf = s.illustrazione?.tipo === "confronto" ? s.illustrazione : null;
+    const tempi = s.illustrazione?.tipo === "tempi" ? s.illustrazione : null;
     return (
       <AbsoluteFill style={base}>
         <Cornice n={n} tot={tot} colore={t.debole}>
@@ -298,7 +315,10 @@ const Slide1: React.FC<CaroselloProps> = ({ stile, slide }) => {
               <div style={{ display: "flex", alignItems: "stretch", gap: 24, marginTop: 44 }}>
                 <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 20, background: t.card, borderRadius: 14, padding: "22px 26px" }}>
                   <Icona nome={conf.a.icona} lato={64} colore={SLATE_500} />
-                  <div style={{ color: SLATE_600, fontSize: 34, fontWeight: 700 }}>{conf.a.testo}</div>
+                  <div>
+                    <div style={{ color: SLATE_600, fontSize: 34, fontWeight: 700 }}>{conf.a.testo}</div>
+                    {conf.a.esito ? <div style={{ color: SLATE_600, fontSize: 28, fontWeight: 600, marginTop: 4 }}>{conf.a.esito}</div> : null}
+                  </div>
                 </div>
                 <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 20, background: "#E3EEFB", borderRadius: 14, padding: "22px 26px" }}>
                   <Icona nome={conf.b.icona} lato={64} colore={BRAND_700} />
@@ -307,6 +327,29 @@ const Slide1: React.FC<CaroselloProps> = ({ stile, slide }) => {
                     <div style={{ color: "#0A57AD", fontSize: 28, fontWeight: 700, marginTop: 4 }}>{conf.b.esito}</div>
                   </div>
                 </div>
+              </div>
+            ) : null}
+            {tempi ? (
+              <div style={{ display: "flex", alignItems: "stretch", gap: 24, marginTop: 44 }}>
+                {tempi.tappe.map((tp, i) => (
+                  <div key={i} style={{ flex: 1, background: t.card, borderRadius: 14, padding: "22px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div style={{ color: t.accento, fontSize: 28, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>{tp.quando}</div>
+                    {(["a", "b"] as const).map((g) => {
+                      const avanti = tp.meglio === g;
+                      return (
+                        <div key={g} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderRadius: 10, padding: "10px 16px", background: avanti ? "#E3EEFB" : "#FFFFFF", border: avanti ? `3px solid ${BRAND_700}` : "3px solid #E2E8F0" }}>
+                          <div style={{ color: avanti ? NAVY_800 : SLATE_600, fontSize: 32, fontWeight: avanti ? 800 : 600 }}>{tempi[g]}</div>
+                          {avanti ? (
+                            <svg width={34} height={34} viewBox="0 0 24 24" fill="none" stroke={BRAND_700} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5" /><path d="m5 12 7-7 7 7" /></svg>
+                          ) : tp.meglio ? null : (
+                            <svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke={SLATE_500} strokeWidth={3} strokeLinecap="round"><path d="M5 9h14" /><path d="M5 15h14" /></svg>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <div style={{ color: NAVY_800, fontSize: 30, fontWeight: 800, marginTop: 4 }}>{tp.esito}</div>
+                  </div>
+                ))}
               </div>
             ) : null}
             <div style={{ background: t.card, borderLeft: `8px solid ${AMBER_400}`, borderRadius: 12, padding: "28px 32px", marginTop: 48, color: t.titolo, fontSize: 38, fontWeight: 600, lineHeight: 1.35 }}>
@@ -379,7 +422,7 @@ const Slide1: React.FC<CaroselloProps> = ({ stile, slide }) => {
         <>
           <BarraSeServe n={n} tot={tot} />
           <div style={{ position: "absolute", left: 90, right: 90, top: 905, height: 3, background: SAND_50 }} />
-          <Img src={staticFile("ritratto.png")} style={{ position: "absolute", left: 70, bottom: 0, height: 420, width: 420 * (1064 / 1478) }} />
+          <Img data-ostacolo src={staticFile("ritratto.png")} style={{ position: "absolute", left: 70, bottom: 0, height: 420, width: 420 * (1064 / 1478) }} />
           <div style={{ position: "absolute", left: 420, right: 90, bottom: 110 }}>
             <div style={{ color: NAVY_800, fontSize: 44, fontWeight: 800 }}>Dr. Federico Piazza</div>
             <div style={{ color: BRAND_700, fontSize: 32, fontWeight: 700, marginTop: 8 }}>Osteopata e fisioterapista</div>

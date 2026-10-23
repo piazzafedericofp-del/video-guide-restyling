@@ -8,7 +8,9 @@ Legge <cartella>/misure.json (testi misurati nella pagina) e le slide JPEG, poi 
 - contrasto (WCAG): 4,5:1 sotto i 48 px, 3:1 per i titoli grandi. Lo sfondo si ricava dai
   pixel dell'immagine dentro il riquadro del testo, quindi vale anche sopra le foto;
 - margini: testi dentro x 60–1020 e y 40–1290 (la griglia del profilo taglia la copertina
-  in 3:4, circa 34 px per lato).
+  in 3:4, circa 34 px per lato);
+- sovrapposizioni: due testi che si toccano, o un testo a meno di 12 px dal ritratto della firma
+  (il 23/10 la fonte della fascite finiva sulla tessera del ritratto).
 """
 
 import json
@@ -64,6 +66,12 @@ def sfondo(img, voce, colore_testo):
     return lontani[distanze <= np.percentile(distanze, 25)].mean(axis=0)
 
 
+def sovrapposti(a, b, tolleranza=2):
+    ox = min(a["x"] + a["w"], b["x"] + b["w"]) - max(a["x"], b["x"])
+    oy = min(a["y"] + a["h"], b["y"] + b["h"]) - max(a["y"], b["y"])
+    return ox > tolleranza and oy > tolleranza
+
+
 def main():
     cartella = Path(sys.argv[1])
     misure = json.loads((cartella / "misure.json").read_text())
@@ -93,11 +101,22 @@ def main():
             if r < soglia:
                 print(f"✗ {nome}: contrasto {r:.1f}:1 (minimo {soglia}:1)")
                 problemi += 1
+        vs = slide["voci"]
+        for i in range(len(vs)):
+            for j in range(i + 1, len(vs)):
+                if vs[i].get("blocco", i) != vs[j].get("blocco", j) and sovrapposti(vs[i], vs[j]):
+                    print(f"✗ slide {n}: «{vs[i]['testo'][:24]}» e «{vs[j]['testo'][:24]}» si sovrappongono")
+                    problemi += 1
+        for o in slide.get("ostacoli", []):
+            for v in vs:
+                if sovrapposti(v, o, tolleranza=-12):
+                    print(f"✗ slide {n}: «{v['testo'][:28]}» tocca il ritratto della firma (serve almeno 12 px di aria)")
+                    problemi += 1
     voci = sum(len(s["voci"]) for s in misure)
     if problemi:
         print(f"\n{problemi} problemi su {voci} testi in {len(misure)} slide.")
         sys.exit(1)
-    print(f"Tutto a posto: {voci} testi in {len(misure)} slide (dimensione, contrasto, margini).")
+    print(f"Tutto a posto: {voci} testi in {len(misure)} slide (dimensione, contrasto, margini, sovrapposizioni).")
 
 
 if __name__ == "__main__":
