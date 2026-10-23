@@ -1,7 +1,7 @@
 import { Composition, staticFile } from "remotion";
 import { Carosello, type CaroselloProps } from "./Carosello";
 import { EsercizioStruttura, type EsercizioStrutturaProps } from "./EsercizioStruttura";
-import { ReelMomenti, type ReelMomentiProps } from "./ReelMomenti";
+import { CopertinaMomenti, ReelMomenti, type ReelMomentiProps } from "./ReelMomenti";
 
 // Render in cloud dei contenuti social di @fisioconfede: un contenuto alla volta, i dati arrivano da
 // public/dati.json (scritto dalla routine nel progetto privato). Nel codice pubblico non c'è nessun testo.
@@ -54,6 +54,23 @@ export const RootSocial: React.FC = () => (
         }}
       />
     ))}
+    {/* Copertina composta del modello "momenti" (props.copertina): un fotogramma, titolo del gancio sul petto */}
+    <Composition
+      id="Copertina"
+      component={CopertinaMomenti}
+      fps={30}
+      width={1080}
+      height={1920}
+      durationInFrames={1}
+      defaultProps={reelVuoto as unknown as ReelMomentiProps}
+      calculateMetadata={async ({ props }) => {
+        try {
+          return { props: (await leggi<DatiReel>()).props as ReelMomentiProps };
+        } catch {
+          return { props };
+        }
+      }}
+    />
     {([["Carosello", 1350, false], ["Carosello916", 1920, true]] as const).map(([id, altezza, verticale]) => (
       <Composition
         key={id}

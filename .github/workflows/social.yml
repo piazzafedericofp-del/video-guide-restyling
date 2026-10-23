@@ -157,8 +157,13 @@ jobs:
           ffmpeg -nostdin -v error -ss "$INIZIO" -t "$DUR" -i brano.mp3 -af "afade=t=in:d=0.15,afade=t=out:st=$FINE:d=1.2,loudnorm=I=-14:TP=-1.5:LRA=7" -ar 48000 -ac 2 musica.wav
           mkdir -p out/consegna
           ffmpeg -nostdin -v error -i out/muto.mp4 -i musica.wav -map 0:v -map 1:a -c:v copy -c:a aac -b:a 192k -shortest -movflags +faststart out/consegna/video.mp4
-          # Copertina: fotogramma del gancio (Instagram la usa nella griglia del profilo)
-          ffmpeg -nostdin -v error -ss "$(jq -r '.copertina // 1.2' "$D")" -i out/consegna/video.mp4 -frames:v 1 -q:v 2 out/consegna/copertina.jpg
+          # Copertina (Instagram la usa nella griglia del profilo): composta se c'è props.copertina (modello "momenti",
+          # scelta di Federico del 23/10: fotogramma coinvolgente, stretto, titolo sul petto), altrimenti fotogramma del gancio
+          if [ "$(jq -r '.props.copertina // empty | type' "$D")" = "object" ]; then
+            npx remotion still src/social/index.ts Copertina out/consegna/copertina.jpg --image-format=jpeg --jpeg-quality=92 --log=error
+          else
+            ffmpeg -nostdin -v error -ss "$(jq -r '.copertina // 1.2' "$D")" -i out/consegna/video.mp4 -frames:v 1 -q:v 2 out/consegna/copertina.jpg
+          fi
           ffmpeg -nostdin -v error -i out/consegna/video.mp4 -vf "fps=1/2,scale=270:-1,tile=8x1" -frames:v 1 out/foglio.jpg
           cp out/consegna/video.mp4 "out/$ID.mp4"
 

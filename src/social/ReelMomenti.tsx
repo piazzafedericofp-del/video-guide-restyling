@@ -63,7 +63,13 @@ export type ReelMomentiProps = {
   readonly dosaggio: { readonly da: number; readonly a: number; readonly ripetizioni: string; readonly serie: string; readonly etichetta: string };
   readonly invito: { readonly da: number; readonly testo: string; readonly icona: string };
   readonly firma: string;
+  readonly copertina?: Copertina; // copertina composta (scelta di Federico, 23/10 sera): fotogramma scelto, stretto, titolo sul petto
   readonly misura?: boolean; // solo testi su nero, per controlla-zone.py
+};
+// Copertina: il fotogramma `clip` della sorgente con l'inquadratura {z, cx, cy, ay} (stessa formula dei piani),
+// titolo del gancio fermo con la riga alta a `titoloY` px (sul petto, dentro il ritaglio 3:4 della griglia: 240–1680)
+export type Copertina = {
+  readonly clip: number; readonly z: number; readonly cx: number; readonly cy: number; readonly ay: number; readonly titoloY: number;
 };
 
 const contorno = (px: number): React.CSSProperties => ({ WebkitTextStroke: `${px}px black`, paintOrder: "stroke fill" });
@@ -181,11 +187,12 @@ const ArcoMovimento: React.FC<{ readonly p: ReelMomentiProps; readonly arco: Arc
 };
 
 // ─── 1 · Gancio ───
-const Titolo: React.FC<{ readonly righe: readonly string[]; readonly durata: number }> = ({ righe, durata }) => {
-  const frame = useCurrentFrame();
+const Titolo: React.FC<{ readonly righe: readonly string[]; readonly durata: number; readonly top?: number; readonly fermo?: boolean }> = ({ righe, durata, top = 270, fermo = false }) => {
+  const adesso = useCurrentFrame();
+  const frame = fermo ? 1000 : adesso; // ferma = titolo già entrato
   const corpo = Math.min(88, ...righe.map((r) => fitText({ text: r.toUpperCase(), withinWidth: 696, fontFamily: "Inter", fontWeight: 900, letterSpacing: "-0.01em" }).fontSize));
   return (
-    <div style={{ position: "absolute", left: MARGINE, right: MARGINE, top: 270, textAlign: "center", opacity: interpolate(frame, [durata - 5, durata], [1, 0], CLAMP) }}>
+    <div style={{ position: "absolute", left: MARGINE, right: MARGINE, top, textAlign: "center", opacity: fermo ? 1 : interpolate(frame, [durata - 5, durata], [1, 0], CLAMP) }}>
       {righe.map((r, i) => (
         <div key={r} style={{ fontFamily: "Inter", fontWeight: 900, fontSize: corpo, lineHeight: 1.08, textTransform: "uppercase", letterSpacing: "-0.01em",
           color: i === righe.length - 1 ? GIALLO : "white", ...contorno(11),
@@ -349,6 +356,18 @@ export const ReelMomenti: React.FC<ReelMomentiProps> = (p) => {
       <div style={{ position: "absolute", left: 0, right: 0, top: 1362, textAlign: "center", color: "white", fontFamily: "Inter", fontSize: 30, fontWeight: 600, WebkitTextStroke: "5px rgba(0, 0, 0, 0.75)", paintOrder: "stroke fill" }}>
         {p.firma}
       </div>
+    </AbsoluteFill>
+  );
+};
+
+// ─── Copertina (un fotogramma): V2 del laboratorio, scelta da Federico il 23/10 sera ───
+export const CopertinaMomenti: React.FC<ReelMomentiProps> = (p) => {
+  const c = p.copertina ?? { clip: 1, z: 1.4, cx: p.larghezza / 2, cy: 0, ay: 0, titoloY: 1130 };
+  return (
+    <AbsoluteFill style={{ backgroundColor: "black", overflow: "hidden" }}>
+      <UnPiano p={p} q={{ da: 0, clip: c.clip, z0: c.z, z1: c.z, cx: c.cx, cy: c.cy, ay: c.ay }} durata={1} primo />
+      <AbsoluteFill style={{ background: "radial-gradient(ellipse 90% 75% at 50% 50%, transparent 62%, rgba(0, 0, 0, 0.32) 100%)" }} />
+      <Titolo righe={p.gancio.righe} durata={1} top={c.titoloY} fermo />
     </AbsoluteFill>
   );
 };
