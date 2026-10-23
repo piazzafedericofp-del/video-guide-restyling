@@ -1,0 +1,106 @@
+# Revisione mensile di federicopiazza.com (skill revisione-mese nel repo federicopiazza.com, 23/10/2026).
+# La routine Claude non raggiunge la dashboard dal suo ambiente cloud: questi due passaggi fanno da ponte
+# attraverso il progetto privato, come per Reel e caroselli.
+# 1. "dati": il 1° del mese porta i numeri del mese chiuso (GET /api/revisione/dati, solo totali, nessun dato
+#    personale) in media/revisione/<mese>/dati.json. Nei mesi di fine trimestre anche i due mesi prima.
+# 2. "consegna": quando la routine ha scritto media/revisione/<mese>/revisione.json, la consegna alla dashboard
+#    (POST /api/revisione, che manda l'email a Federico) e scrive il file "consegnato".
+# Nei log non compare nessun numero né testo della revisione.
+name: Revisione mensile
+
+on:
+  schedule:
+    - cron: "30 4 1 * *"    # dati: 6:30 ora legale / 5:30 ora solare
+    - cron: "37 * 1-3 * *"  # consegna: ogni ora nei primi 3 giorni del mese
+  workflow_dispatch:
+    inputs:
+      azione:
+        description: "dati | consegna"
+        required: true
+        default: "consegna"
+      mese:
+        description: "mese da analizzare AAAA-MM (vuoto = il mese scorso), solo per dati"
+        required: false
+
+concurrency:
+  group: revisione
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  REVISIONE_TOKEN: ${{ secrets.REVISIONE_TOKEN }}
+  DASHBOARD: https://fisioconfede-social.fisioconfede-social.workers.dev
+
+jobs:
+  revisione:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Progetto privato (solo la cartella revisione)
+        uses: actions/checkout@v4
+        with:
+          repository: piazzafedericofp-del/video-guide-media
+          token: ${{ secrets.MEDIA_TOKEN }}
+          path: media
+          sparse-checkout: |
+            revisione
+
+      - name: Numeri del mese dalla dashboard
+        if: github.event.schedule == '30 4 1 * *' || (github.event_name == 'workflow_dispatch' && inputs.azione == 'dati')
+        env:
+          MESE: ${{ inputs.mese }}
+        run: |
+          python3 - <<'EOF'
+          import datetime, json, os, urllib.request
+          oggi = datetime.date.today().replace(day=1)
+          mese = os.environ.get("MESE") or (oggi - datetime.timedelta(days=1)).strftime("%Y-%m")
+          a, m = map(int, mese.split("-"))
+          def indietro(n):
+              y, mm = a, m - n
+              while mm < 1: y, mm = y - 1, mm + 12
+              return f"{y}-{mm:02d}"
+          mesi = [mese] + ([indietro(1), indietro(2)] if m % 3 == 0 else [])
+          cartella = f"media/revisione/{mese}"
+          os.makedirs(cartella, exist_ok=True)
+          for i, x in enumerate(mesi):
+              r = urllib.request.Request(f"{os.environ['DASHBOARD']}/api/revisione/dati?mese={x}",
+                  headers={"authorization": "Bearer " + os.environ["REVISIONE_TOKEN"], "user-agent": "revisione-actions/1.0"})
+              dati = json.load(urllib.request.urlopen(r, timeout=60))
+              nome = "dati.json" if i == 0 else f"dati-{x}.json"
+              json.dump(dati, open(f"{cartella}/{nome}", "w"), ensure_ascii=False, indent=1)
+              print(f"{nome}: ok")
+          EOF
+          cd media
+          git config user.name "revisione"; git config user.email "render@users.noreply.github.com"
+          git add -A revisione; git diff --cached --quiet && exit 0
+          git commit -q -m "revisione: numeri del mese"
+          for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
+
+      - name: Consegna alla dashboard
+        if: github.event.schedule == '37 * 1-3 * *' || (github.event_name == 'workflow_dispatch' && inputs.azione == 'consegna')
+        run: |
+          python3 - <<'EOF'
+          import glob, json, os, urllib.error, urllib.request, datetime
+          for f in sorted(glob.glob("media/revisione/*/revisione.json")):
+              cartella = os.path.dirname(f)
+              if os.path.exists(f"{cartella}/consegnato"):
+                  continue
+              r = urllib.request.Request(f"{os.environ['DASHBOARD']}/api/revisione", data=open(f, "rb").read(), method="POST",
+                  headers={"authorization": "Bearer " + os.environ["REVISIONE_TOKEN"], "content-type": "application/json", "user-agent": "revisione-actions/1.0"})
+              try:
+                  esito = json.load(urllib.request.urlopen(r, timeout=60))
+                  open(f"{cartella}/consegnato", "w").write(f"{datetime.datetime.utcnow():%Y-%m-%d %H:%M} UTC · email {esito.get('email')}\n")
+                  if os.path.exists(f"{cartella}/errore-consegna.txt"): os.remove(f"{cartella}/errore-consegna.txt")
+                  print(f"{os.path.basename(cartella)}: consegnata")
+              except urllib.error.HTTPError as e:
+                  # Errore di formato: lo legge la routine o la sessione successiva (il testo è il messaggio della dashboard)
+                  open(f"{cartella}/errore-consegna.txt", "w").write(f"HTTP {e.code}: {e.read().decode()[:500]}\n")
+                  print(f"{os.path.basename(cartella)}: errore {e.code}")
+          EOF
+          cd media
+          git config user.name "revisione"; git config user.email "render@users.noreply.github.com"
+          git add -A revisione; git diff --cached --quiet && exit 0
+          git commit -q -m "revisione: consegna"
+          for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
