@@ -1,0 +1,97 @@
+# Azioni approvate dalla revisione mensile che fa Claude da solo (skill revisione-mese §6, 23/10/2026).
+# Ogni quarto d'ora:
+# 1. consegna alla dashboard i risultati scritti dalla routine in media/azioni/<id>/risultato.json;
+# 2. porta le richieste nuove della dashboard (lavora, modifica, pubblica) in media/azioni/<id>/lavoro.json e
+#    pubblica una release "azione-<id>-<giro>": è l'evento che fa partire la routine "Azioni approvate";
+# 3. cancella le release "azione-*" più vecchie di 2 ore (servono solo come segnale).
+# Nei log compaiono solo gli id delle azioni, mai i testi.
+name: Azioni approvate
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: azioni
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  GH_TOKEN: ${{ secrets.MEDIA_TOKEN }}
+  REVISIONE_TOKEN: ${{ secrets.REVISIONE_TOKEN }}
+  MEDIA_REPO: piazzafedericofp-del/video-guide-media
+  DASHBOARD: https://fisioconfede-social.fisioconfede-social.workers.dev
+
+jobs:
+  azioni:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Progetto privato (solo la cartella azioni)
+        uses: actions/checkout@v4
+        with:
+          repository: piazzafedericofp-del/video-guide-media
+          token: ${{ secrets.MEDIA_TOKEN }}
+          path: media
+          sparse-checkout: |
+            azioni
+
+      - name: Risultati e richieste
+        run: |
+          python3 - <<'EOF'
+          import glob, json, os, subprocess, urllib.error, urllib.request
+          B, T = os.environ["DASHBOARD"], os.environ["REVISIONE_TOKEN"]
+          def api(metodo, percorso, corpo=None):
+              r = urllib.request.Request(B + percorso, method=metodo, data=json.dumps(corpo).encode() if corpo is not None else None,
+                  headers={"authorization": "Bearer " + T, "content-type": "application/json", "user-agent": "azioni-actions/1.0"})
+              return json.load(urllib.request.urlopen(r, timeout=60))
+          # 1. Risultati della routine non ancora consegnati
+          for f in sorted(glob.glob("media/azioni/*/risultato.json")):
+              d = os.path.dirname(f); r = json.load(open(f))
+              fatto = int(open(f"{d}/consegnato").read().strip() or 0) if os.path.exists(f"{d}/consegnato") else 0
+              if int(r.get("giro", 0)) <= fatto: continue
+              try:
+                  api("POST", "/api/azioni/stato", {"id": os.path.basename(d), "stato": r["stato"], "giro": r["giro"], "risultato": r})
+                  open(f"{d}/consegnato", "w").write(str(r["giro"]))
+                  print(os.path.basename(d), "consegnato", r["stato"])
+              except urllib.error.HTTPError as e:
+                  print(os.path.basename(d), "errore consegna", e.code)
+          # 2. Richieste nuove dalla dashboard
+          nuove = []
+          for a in api("GET", "/api/azioni/coda"):
+              d = f"media/azioni/{a['id']}"; os.makedirs(d, exist_ok=True)
+              json.dump(a, open(f"{d}/lavoro.json", "w"), ensure_ascii=False, indent=1)
+              nuove.append(a); print(a["id"], "richiesta", a["richiesta"], "giro", a["giro"])
+          json.dump(nuove, open("/tmp/nuove.json", "w"))
+          EOF
+          cd media
+          git config user.name "azioni"; git config user.email "render@users.noreply.github.com"
+          git add -A azioni
+          if ! git diff --cached --quiet; then
+            git commit -q -m "azioni: richieste e consegne"
+            for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
+          fi
+
+      - name: Avvio della routine (una release per richiesta)
+        run: |
+          python3 - <<'EOF'
+          import json, os, subprocess, urllib.request
+          B, T = os.environ["DASHBOARD"], os.environ["REVISIONE_TOKEN"]
+          for a in json.load(open("/tmp/nuove.json")):
+              tag = f"azione-{a['id']}-{a['giro']}"
+              subprocess.run(["gh", "release", "create", tag, "-R", os.environ["MEDIA_REPO"], "--prerelease",
+                              "--title", tag, "--notes", f"Richiesta: {a['richiesta']} (azione {a['id']}, giro {a['giro']})"], check=True)
+              stato = "in_pubblicazione" if a["richiesta"] == "pubblica" else "in_lavorazione"
+              r = urllib.request.Request(B + "/api/azioni/stato", method="POST", data=json.dumps({"id": a["id"], "stato": stato, "giro": a["giro"]}).encode(),
+                  headers={"authorization": "Bearer " + T, "content-type": "application/json", "user-agent": "azioni-actions/1.0"})
+              urllib.request.urlopen(r, timeout=60); print(tag, "→", stato)
+          EOF
+
+      - name: Pulizia delle release vecchie
+        run: |
+          gh release list -R "$MEDIA_REPO" --limit 100 --json tagName,createdAt \
+            --jq '.[] | select(.tagName | startswith("azione-")) | select((now - (.createdAt | fromdateiso8601)) > 7200) | .tagName' |
+          while read -r t; do gh release delete "$t" -R "$MEDIA_REPO" --yes --cleanup-tag; done
