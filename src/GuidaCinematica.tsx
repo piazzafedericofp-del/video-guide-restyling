@@ -146,7 +146,14 @@ export type GuidaCinematicaProps = {
   readonly dosaggio: { readonly grande: string; readonly sotto: string; readonly consigli: readonly string[]; readonly etichetta?: string };
   readonly durataFinale: number;
   // Video parlati: scheda navy iniziale (copre il titolo impresso nei vecchi montati) al posto del titolo in basso
-  readonly apertura?: { readonly fino: number; readonly etichetta: string; readonly grande: string; readonly sotto: string };
+  // prima: secondi di scheda con sola musica PRIMA del video (la voce parte quando la scheda sparisce); senza, la scheda copre i primi "fino" secondi
+  readonly apertura?: {
+    readonly fino: number;
+    readonly prima?: number;
+    readonly etichetta: string;
+    readonly grande: string;
+    readonly sotto: string;
+  };
 };
 
 // Tempo del montaggio (s) → tempo del girato (s); null nel finale
@@ -857,20 +864,23 @@ const Apertura: React.FC<{ readonly t: number; readonly immagine: string; readon
 export const GuidaCinematica: React.FC<GuidaCinematicaProps> = (props) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const t = frame / fps;
-  const raw = montaggioARaw(t, props.tratti);
+  // Scheda d'apertura prima del video: tutto il montaggio slitta in avanti di "prima" secondi
+  const prima = props.apertura?.prima ?? 0;
+  const primaF = Math.round(prima * fps);
+  const t = frame / fps - prima;
+  const raw = t < 0 ? null : montaggioARaw(t, props.tratti);
   const cam = raw === null ? null : camera(raw, frame, props.piani);
   const stile = STILI[props.stile];
 
   // Ogni tratto: stesso file, tagliato al punto giusto
   let base = 0;
   const sequenze = props.tratti.map((tr) => {
-    const da = Math.round(base * fps);
+    const da = Math.round(base * fps) + primaF;
     const durata = Math.round((tr.a - tr.da) * fps);
     base += tr.a - tr.da;
     return { da, durata, trim: Math.round((tr.da - props.inizioFile) * fps) };
   });
-  const fineMontaggio = Math.round(durataMontaggio(props.tratti) * fps);
+  const fineMontaggio = Math.round(durataMontaggio(props.tratti) * fps) + primaF;
 
   return (
     <AbsoluteFill style={{ backgroundColor: "black", fontFamily: "Inter" }}>
@@ -909,12 +919,17 @@ export const GuidaCinematica: React.FC<GuidaCinematicaProps> = (props) => {
           <Grafiche raw={raw} cam={cam} lista={props.grafiche} stile={stile} />
           <Capitoli t={t} lista={props.capitoli} tratti={props.tratti} stile={props.stile} />
           {props.apertura ? (
-            t < props.apertura.fino && <Apertura t={t} immagine={props.ultimoFotogramma} dati={props.apertura} />
+            !prima && t < props.apertura.fino && <Apertura t={t} immagine={props.ultimoFotogramma} dati={props.apertura} />
           ) : (
             <Titolo fase={props.fase} titolo={props.titolo} t={t} stile={props.stile} />
           )}
           <Sottotitoli raw={raw} lista={props.sottotitoli} voce={props.paroleVoce} stile={props.stile} />
         </>
+      )}
+
+      {prima > 0 && props.apertura && frame / fps < prima + 0.4 && (
+        // si dissolve sul video già partito
+        <Apertura t={frame / fps} immagine={props.ultimoFotogramma} dati={{ ...props.apertura, fino: prima + 0.4 }} />
       )}
 
       <Sequence from={fineMontaggio - 2} name="Finale">
@@ -925,4 +940,4 @@ export const GuidaCinematica: React.FC<GuidaCinematicaProps> = (props) => {
 };
 
 export const durataGuida = (props: GuidaCinematicaProps, fps: number) =>
-  Math.round((durataMontaggio(props.tratti) + props.durataFinale) * fps);
+  Math.round((durataMontaggio(props.tratti) + props.durataFinale + (props.apertura?.prima ?? 0)) * fps);

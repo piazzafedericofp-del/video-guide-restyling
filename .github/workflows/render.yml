@@ -142,9 +142,10 @@ jobs:
           DUR=$(jq -r '([.tratti[].a] | max) - .inizioFile + 0.5' public/dati.json)
           scripts/prepara-girato.sh girato/intero.mov "$INIZIO" "$DUR" lezione
           TRATTI=$(jq -r '.inizioFile as $i | [.tratti[] | "\(.da - $i):\(.a - $i)"] | join(" ")' public/dati.json)
-          MONT=$(jq -r '[.tratti[] | .a - .da] | add' public/dati.json)
-          TOT=$(jq -r '([.tratti[] | .a - .da] | add) + .durataFinale' public/dati.json)
-          scripts/colonna.sh lezione musica.mp3 "$TOT" "$MONT" "$TRATTI"
+          PRIMA=$(jq -r '.apertura.prima // 0' public/dati.json)
+          MONT=$(jq -r '([.tratti[] | .a - .da] | add) + (.apertura.prima // 0)' public/dati.json)
+          TOT=$(jq -r '([.tratti[] | .a - .da] | add) + .durataFinale + (.apertura.prima // 0)' public/dati.json)
+          scripts/colonna.sh lezione musica.mp3 "$TOT" "$MONT" "$TRATTI" "" "$PRIMA"
           rm -rf girato
 
       - name: Render
