@@ -1,15 +1,20 @@
 import { Composition, staticFile } from "remotion";
 import { Carosello, type CaroselloProps } from "./Carosello";
 import { EsercizioStruttura, type EsercizioStrutturaProps } from "./EsercizioStruttura";
+import { ReelMomenti, type ReelMomentiProps } from "./ReelMomenti";
 
 // Render in cloud dei contenuti social di @fisioconfede: un contenuto alla volta, i dati arrivano da
 // public/dati.json (scritto dalla routine nel progetto privato). Nel codice pubblico non c'è nessun testo.
 // Reel: clip verticale 1080×1920 (skill reel-social). Carosello: una slide per fotogramma, 4:5 e 9:16 (skill carosello-social).
 
-type DatiReel = { formato: "reel"; durata: number; props: EsercizioStrutturaProps };
+// Due modelli: "momenti" (dal 23/10/2026, skill reel-social) e quello del 17/10 (EsercizioStruttura) per i lavori già fatti
+type PropsReel = EsercizioStrutturaProps | ReelMomentiProps;
+type DatiReel = { formato: "reel"; durata: number; props: PropsReel };
+const Reel: React.FC<PropsReel> = (props) =>
+  "modello" in props && props.modello === "momenti" ? <ReelMomenti {...props} /> : <EsercizioStruttura {...(props as EsercizioStrutturaProps)} />;
 type DatiCarosello = { formato: "carosello"; props: Pick<CaroselloProps, "slide"> };
 
-const reelVuoto: EsercizioStrutturaProps = {
+const reelVuoto: PropsReel = {
   video: "clip.mp4", altezzaVideo: 1920,
   inquadrature: [{ da: 0, zoomInizio: 1, zoomFine: 1, centroX: 540, centroY: 960, arrivoY: 960 }],
   gancio: { a: 1, righe: [""], chiave: "" },
@@ -30,7 +35,7 @@ export const RootSocial: React.FC = () => (
       <Composition
         key={id}
         id={id}
-        component={EsercizioStruttura}
+        component={Reel}
         fps={30}
         width={1080}
         height={1920}
@@ -39,8 +44,9 @@ export const RootSocial: React.FC = () => (
         calculateMetadata={async ({ props }) => {
           try {
             const d = await leggi<DatiReel>();
-            // Misura: solo i testi su nero, senza archi (controlla-zone.py)
-            const p = id === "ReelMisura" ? { ...d.props, video: "_nero.mp4", archi: [] } : d.props;
+            // Misura: solo i testi su nero, senza grafiche (controlla-zone.py)
+            const p: PropsReel = id !== "ReelMisura" ? d.props
+              : "modello" in d.props ? { ...d.props, misura: true } : { ...d.props, video: "_nero.mp4", archi: [] };
             return { props: p, durationInFrames: Math.round(d.durata * 30) };
           } catch {
             return { props };

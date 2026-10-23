@@ -144,12 +144,15 @@ jobs:
         run: |
           set -euo pipefail
           D="../media/social/lavori/$ID/dati.json"
-          npx remotion render src/social/index.ts Reel out/muto.mp4 --codec=h264 --crf=18 --log=error
-          DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 out/muto.mp4)
+          # Brano prima del render: nel modello "momenti" gli stacchi vanno sul battito (skill reel-social, ritmo)
+          DUR=$(jq -r .durata "$D")
           BRANO=$(jq -r .brano "$D")
           gh release download musica-social -R "$MEDIA_REPO" -p "$BRANO" -O brano.mp3 < /dev/null
           INIZIO=$(jq -r '.inizio_brano // empty' "$D")
           [ -n "$INIZIO" ] || INIZIO=$(python3 scripts/social/taglio-musica.py brano.mp3 "$DUR" | cut -d' ' -f1)
+          python3 scripts/social/aggancia-battiti.py public/dati.json brano.mp3 "$INIZIO" > /dev/null
+          npx remotion render src/social/index.ts Reel out/muto.mp4 --codec=h264 --crf=18 --log=error
+          DUR=$(ffprobe -v error -show_entries format=duration -of csv=p=0 out/muto.mp4)
           FINE=$(python3 -c "print(max(0, $DUR - 1.2))")
           ffmpeg -nostdin -v error -ss "$INIZIO" -t "$DUR" -i brano.mp3 -af "afade=t=in:d=0.15,afade=t=out:st=$FINE:d=1.2,loudnorm=I=-14:TP=-1.5:LRA=7" -ar 48000 -ac 2 musica.wav
           mkdir -p out/consegna
