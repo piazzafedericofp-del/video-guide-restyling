@@ -56,9 +56,9 @@ const Omino: React.FC<{ lato: number; colore: string }> = ({ lato, colore }) => 
 export type Slide =
   | { tipo: "copertina"; occhiello: string; titolo: string; evidenza: string; sotto: string; foto?: string; fotoIA?: boolean }
   | { tipo: "testo"; titolo: string; corpo: string }
-  | { tipo: "dato"; etichetta: string; numero?: string; frase: string; nota: string; fonte: string; illustrazione?: Illustrazione }
+  | { tipo: "dato"; etichetta: string; numero?: string; frase: string; nota?: string; fonte: string; illustrazione?: Illustrazione }
   | { tipo: "lista"; titolo: string; segno: "si" | "no" | "attenzione"; voci: string[]; nota?: string; icone?: NomeIcona[] }
-  | { tipo: "chiusura"; titolo: string; corpo: string; pulsante: string; studio: string; invito: string };
+  | { tipo: "chiusura"; titolo: string; corpo: string; pulsante: string; studio?: string; invito: string };
 
 // avanzamento: "numeri" (n/8 in basso) o "barra" (barra sottile in alto).
 // controllo: scrive nella console di render misure, colori e posizione di ogni testo
@@ -353,9 +353,11 @@ const Slide1: React.FC<CaroselloProps> = ({ stile, slide }) => {
                 ))}
               </div>
             ) : null}
-            <div style={{ background: t.card, borderLeft: `8px solid ${AMBER_400}`, borderRadius: 12, padding: "28px 32px", marginTop: 48, color: t.titolo, fontSize: 38, fontWeight: 600, lineHeight: 1.35 }}>
-              {s.nota}
-            </div>
+            {s.nota ? (
+              <div style={{ background: t.card, borderLeft: `8px solid ${AMBER_400}`, borderRadius: 12, padding: "28px 32px", marginTop: 48, color: t.titolo, fontSize: 38, fontWeight: 600, lineHeight: 1.35 }}>
+                {s.nota}
+              </div>
+            ) : null}
             <div style={{ color: t.debole, fontSize: 28, fontWeight: 500, lineHeight: 1.4, marginTop: 40 }}>Fonte: {s.fonte}</div>
           </div>
         </Cornice>
@@ -414,7 +416,7 @@ const Slide1: React.FC<CaroselloProps> = ({ stile, slide }) => {
         <div style={{ display: "inline-block", marginTop: 40, background: scuro ? AMBER_400 : BRAND_700, color: scuro ? NAVY_800 : "white", fontSize: 38, fontWeight: 700, padding: "20px 36px", borderRadius: 14, whiteSpace: "nowrap" }}>
           {s.pulsante}
         </div>
-        <div style={{ color: t.titolo, fontSize: 36, fontWeight: 600, lineHeight: 1.4, marginTop: 44 }}>{s.studio}</div>
+        {s.studio ? <div style={{ color: t.titolo, fontSize: 36, fontWeight: 600, lineHeight: 1.4, marginTop: 44 }}>{s.studio}</div> : null}
         <div style={{ display: "inline-block", marginTop: 36, background: scuro ? t.card : SAND_50, color: t.titolo, fontSize: 34, fontWeight: 700, padding: "18px 26px", borderRadius: 14 }}>
           {s.invito}
         </div>
