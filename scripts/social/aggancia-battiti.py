@@ -23,7 +23,7 @@ y, sr = librosa.load(brano, sr=22050, mono=True)
 _, battiti = librosa.beat.beat_track(y=y, sr=sr)
 t_batt = librosa.frames_to_time(battiti, sr=sr) - inizio
 t_batt = t_batt[(t_batt > 0) & (t_batt < durata)]
-grafiche = [(g["da"], g["a"]) for g in ([p["segnale"]] if p.get("segnale") else []) + p.get("archi", [])]
+grafiche = [(g["da"], g["a"]) for g in ([p["segnale"]] if p.get("segnale") else []) + p.get("archi", []) + p.get("assi", [])]
 dentro = lambda t: any(a < t < b for a, b in grafiche)
 
 piani = p["piani"]

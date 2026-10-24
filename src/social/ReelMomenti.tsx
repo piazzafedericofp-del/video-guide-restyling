@@ -6,7 +6,7 @@
 // 3 passi (uno alla volta, con i puntini) · errore facoltativo ("Così no" / "Così sì") · 4 dosaggio in tre battute ·
 // 5 invito (pulsante bianco con 📩, fino alla fine). Ritmo: pochi stacchi, sempre sul battito del brano.
 //
-// Tutte le coordinate sono in pixel della SORGENTE (la clip), non dello schermo: cerchio e archi seguono da soli
+// Tutte le coordinate sono in pixel della SORGENTE (la clip), non dello schermo: cerchio, archi e assi seguono da soli
 // l'inquadratura attiva. Un punto P della sorgente va sullo schermo in x = 540 + (P.x − cx)·k·z, y = ay + (P.y − cy)·k·z,
 // con k = 1920 / altezza della sorgente e z lo zoom del piano in quell'istante.
 import { loadFont } from "@remotion/fonts";
@@ -42,6 +42,13 @@ export type Arco = {
   readonly da: number; readonly a: number; readonly perno: Punto; readonly lunghezza: number;
   readonly traccia: readonly { readonly t: number; readonly gradi: number }[];
 };
+// Asse del corpo (Federico, 24/10/2026: "una linea che faccia vedere il tronco in asse", plank laterale): linea dritta
+// gialla che unisce 2 o più punti del corpo in pixel della sorgente (es. caviglia → anca → spalla), con un pallino su ogni
+// punto. Se il corpo si sposta, `movimento` dà i punti misurati in altri secondi del Reel (stesso numero e ordine).
+export type Asse = {
+  readonly da: number; readonly a: number; readonly punti: readonly Punto[];
+  readonly movimento?: readonly { readonly t: number; readonly punti: readonly Punto[] }[];
+};
 export type Parola = { readonly t: number; readonly testo: string };
 
 export type ReelMomentiProps = {
@@ -59,6 +66,7 @@ export type ReelMomentiProps = {
   readonly passi: { readonly da: number; readonly a: number; readonly voci: readonly { readonly da: number; readonly testo: string }[] };
   readonly segnale?: { readonly da: number; readonly a: number; readonly x: number; readonly y: number }; // cerchio, pixel sorgente
   readonly archi?: readonly Arco[];
+  readonly assi?: readonly Asse[];
   readonly errore?: { readonly da: number; readonly meta: number; readonly a: number; readonly no: string; readonly si: string };
   readonly dosaggio: { readonly da: number; readonly a: number; readonly ripetizioni: string; readonly serie: string; readonly etichetta: string };
   readonly invito: { readonly da: number; readonly testo: string; readonly icona: string };
@@ -181,6 +189,38 @@ const ArcoMovimento: React.FC<{ readonly p: ReelMomentiProps; readonly arco: Arc
       <g style={{ filter: "drop-shadow(0 0 4px rgba(0,0,0,0.7))" }}>
         <path d={`M ${x0} ${y0} A ${raggio} ${raggio} 0 ${Math.abs(testa - inizio) > 180 ? 1 : 0} ${orario ? 1 : 0} ${x1} ${y1}`} {...tratto} />
         <path d={`M ${p1[0]} ${p1[1]} L ${x1} ${y1} L ${p2[0]} ${p2[1]}`} {...tratto} />
+      </g>
+    </svg>
+  );
+};
+
+const AsseCorpo: React.FC<{ readonly p: ReelMomentiProps; readonly asse: Asse }> = ({ p, asse }) => {
+  const frame = useCurrentFrame();
+  const { fps, width, height, durationInFrames } = useVideoConfig();
+  const t = asse.da + frame / fps;
+  const chiavi = [{ t: asse.da, punti: asse.punti }, ...(asse.movimento ?? [])].sort((u, v) => u.t - v.t);
+  const qui = asse.punti.map((_, i) => {
+    const sorgente = chiavi.length < 2 ? asse.punti[i] : {
+      x: interpolate(t, chiavi.map((c) => c.t), chiavi.map((c) => c.punti[i].x), CLAMP),
+      y: interpolate(t, chiavi.map((c) => c.t), chiavi.map((c) => c.punti[i].y), CLAMP),
+    };
+    return sulloSchermo(p, t, durationInFrames / fps, sorgente);
+  });
+  const durata = f(fps, asse.a - asse.da);
+  // La linea si disegna dal primo all'ultimo punto in 0,4 s, poi resta; i pallini compaiono quando la linea li raggiunge
+  const lunghezze = qui.slice(1).map((q, i) => Math.hypot(q.x - qui[i].x, q.y - qui[i].y));
+  const totale = lunghezze.reduce((a, b) => a + b, 0) || 1;
+  const disegnata = interpolate(frame, [0, 0.4 * fps], [0, 1], { ...CLAMP, easing: MORBIDO });
+  const tratto = { fill: "none", strokeLinecap: "round" as const, strokeLinejoin: "round" as const, stroke: GIALLO, strokeWidth: 9 };
+  return (
+    <svg width={width} height={height} style={{ position: "absolute", inset: 0, opacity: interpolate(frame, [0, 0.12 * fps, durata - 0.2 * fps, durata], [0, 1, 1, 0], CLAMP) }}>
+      <g style={{ filter: "drop-shadow(0 0 4px rgba(0,0,0,0.7))" }}>
+        <polyline points={qui.map((q) => `${q.x},${q.y}`).join(" ")} {...tratto} strokeDasharray={totale} strokeDashoffset={totale * (1 - disegnata)} />
+        {qui.map((q, i) => {
+          const arrivo = lunghezze.slice(0, i).reduce((a, b) => a + b, 0) / totale;
+          return <circle key={i} cx={q.x} cy={q.y} r={13} fill={GIALLO} stroke={NAVY} strokeWidth={4}
+            opacity={disegnata >= arrivo - 0.001 ? 1 : 0} />;
+        })}
       </g>
     </svg>
   );
@@ -335,6 +375,7 @@ export const ReelMomenti: React.FC<ReelMomentiProps> = (p) => {
       {!misura && p.voce ? <Sequence from={f(fps, p.voce.da)}><Audio src={staticFile(p.voce.file)} /></Sequence> : null}
       {!misura && segnale ? <Da nome="Cerchio" da={segnale.da} a={segnale.a}><Cerchio p={p} da={segnale.da} punto={segnale} /></Da> : null}
       {!misura ? (p.archi ?? []).map((arco, i) => <Da key={i} nome={`Arco ${i + 1}`} da={arco.da} a={arco.a}><ArcoMovimento p={p} arco={arco} /></Da>) : null}
+      {!misura ? (p.assi ?? []).map((asse, i) => <Da key={`asse${i}`} nome={`Asse ${i + 1}`} da={asse.da} a={asse.a}><AsseCorpo p={p} asse={asse} /></Da>) : null}
 
       <Da nome="1 Gancio" da={0} a={gancio.a}>
         {gancio.parlato ? <Sottotitoli y={gancio.parlato.y} parole={gancio.parlato.parole} /> : <Titolo righe={gancio.righe} durata={f(fps, gancio.a)} />}
