@@ -27,7 +27,7 @@ env:
 jobs:
   render:
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 355
     steps:
       - name: Progetto privato (solo catalogo, lezioni, musica)
         uses: actions/checkout@v4
@@ -109,16 +109,22 @@ jobs:
           if [ "$N" -eq 1 ]; then
             mv girato/s0.mov girato/intero.mov
           else
-            # Più riprese nella stessa lezione: ognuna portata a 3840x2160 30 fps con qualità quasi trasparente,
-            # poi messe in fila senza ricodifica. I tempi dei dati seguono questa fila (ripresa 2 dopo la 1, ecc.).
-            : > girato/fila.txt
-            for ((i=0; i<N; i++)); do
-              ffmpeg -nostdin -v error -i "girato/s$i.mov" -map 0:v:0 -map 0:a:0 \
-                -vf "scale=3840:2160:flags=lanczos,fps=30" -c:v libx264 -crf 10 -preset fast -pix_fmt yuv420p \
-                -c:a aac -b:a 256k -ar 48000 "girato/n$i.mp4"
-              rm "girato/s$i.mov"; echo "file 'n$i.mp4'" >> girato/fila.txt
-            done
-            ffmpeg -nostdin -v error -f concat -safe 0 -i girato/fila.txt -c copy girato/intero.mov
+            # Più riprese nella stessa lezione: i tempi dei dati seguono la fila delle riprese (ripresa 2 dopo la
+            # durata della 1, come in prepara-lezione.py). Di ogni ripresa si prende solo il pezzo usato; il taglio,
+            # il formato 4K 30 fps e la correzione colore si fanno in un solo passaggio (prepara-girato.sh).
+            # Prima tutte le riprese venivano ricodificate per intero due volte: il 23/10 l'elevazione a muro
+            # ha superato il tempo massimo del flusso.
+            python3 -c "
+          import json, os
+          d = json.load(open('public/dati.json'))
+          l = [x for x in json.load(open('../media/catalogo.json'))['lezioni'] if x['id'] == os.environ['ID']][0]
+          ini = d['inizioFile']; fine = max(t['a'] for t in d['tratti']) + 0.5; off = 0
+          for i, s in enumerate(l['sorgenti']):
+              a = max(ini, off); b = min(fine, off + s['durata'])
+              if b > a: print(f'girato/s{i}.mov {a - off:.3f} {b - a:.3f}')
+              off += s['durata']
+          " > girato/riprese.txt
+            cat girato/riprese.txt
           fi
 
       - name: Prepara girato e colonna sonora
@@ -128,7 +134,11 @@ jobs:
           set -euo pipefail
           INIZIO=$(jq -r .inizioFile public/dati.json)
           DUR=$(jq -r '([.tratti[].a] | max) - .inizioFile + 0.5' public/dati.json)
-          scripts/prepara-girato.sh girato/intero.mov "$INIZIO" "$DUR" lezione
+          if [ -f girato/riprese.txt ]; then
+            scripts/prepara-girato.sh girato/riprese.txt 0 0 lezione
+          else
+            scripts/prepara-girato.sh girato/intero.mov "$INIZIO" "$DUR" lezione
+          fi
           TRATTI=$(jq -r '.inizioFile as $i | [.tratti[] | "\(.da - $i):\(.a - $i)"] | join(" ")' public/dati.json)
           PRIMA=$(jq -r '.apertura.prima // 0' public/dati.json)
           MONT=$(jq -r '([.tratti[] | .a - .da] | add) + (.apertura.prima // 0)' public/dati.json)
