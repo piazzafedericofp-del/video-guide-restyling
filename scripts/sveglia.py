@@ -93,6 +93,8 @@ for i, s in stato_s.items():
 
 def candidato_social(i, s):
     d = lavori[i]
+    if s == "da_verificare":   # copertina IA appena generata: la routine la guarda prima della consegna
+        return True
     if s == "errore":   # controllo automatico non superato: la routine lo corregge una volta sola
         return int(leggi(d / "tentativi") or 0) < 1
     if s != "da_fare":

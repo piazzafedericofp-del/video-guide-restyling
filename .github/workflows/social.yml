@@ -164,6 +164,7 @@ jobs:
 
       # ---------------- Carosello ----------------
       - name: Carosello · foto, render e controlli
+        id: carosello
         if: steps.scelta.outputs.formato == 'carosello'
         env:
           ID: ${{ steps.scelta.outputs.id }}
@@ -203,10 +204,27 @@ jobs:
           grep "Tutto a posto" out/controlli.txt | sed 's/:.*//' 
           ffmpeg -nostdin -v error -i "out/consegna/c45/slide-%02d.jpg" -vf "scale=270:338,tile=8x1" -frames:v 1 out/foglio.jpg
           (cd out/consegna && zip -qr "../$ID.zip" c45 c916)
+          # Copertina appena generata con l'IA: nessuno l'ha ancora vista (la routine scrive la descrizione prima che
+          # esista). Non va in dashboard: torna alla routine, che la guarda e la conferma o la fa rigenerare (24/10/2026).
+          if jq -e '[.foto[]? | select(.sorgente == "ia")] | length > 0' "$D" > /dev/null; then echo "verifica=1" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Copertina IA da verificare
+        if: steps.carosello.outputs.verifica == '1'
+        env:
+          ID: ${{ steps.scelta.outputs.id }}
+        run: |
+          cd media
+          L="social/lavori/$ID"
+          cp ../codice/out/consegna/c45/slide-01.jpg "$L/copertina-slide.jpg"
+          cp ../codice/out/consegna/c916/slide-01.jpg "$L/copertina-slide-916.jpg"
+          cp ../codice/out/foglio.jpg "$L/foglio.jpg"
+          echo -n da_verificare > "$L/stato"
+          git add "$L"; git commit -q -m "social $ID: da_verificare (copertina IA)"
+          for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
 
       # ---------------- Consegna ----------------
       - name: Consegna alla dashboard
-        if: steps.scelta.outputs.id != ''
+        if: steps.scelta.outputs.id != '' && steps.carosello.outputs.verifica != '1'
         env:
           ID: ${{ steps.scelta.outputs.id }}
         run: |
