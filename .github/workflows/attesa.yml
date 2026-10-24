@@ -1,5 +1,6 @@
 # Attesa della routine (24/10/2026). La Sveglia lo avvia subito dopo aver svegliato una routine Claude: aspetta che
-# la routine cominci (un lavoro "in_preparazione") e che finisca (nessun lavoro "in_preparazione"), poi avvia di nuovo
+# la routine finisca (un lavoro passato a dati_pronti / bloccato / da_verificare e nessuno "in_preparazione": così vede
+# anche le routine che durano meno di un controllo), poi avvia di nuovo
 # la Sveglia, che fa partire il render e il lavoro successivo. Così la catena routine → render → lavoro successivo non
 # dipende dal timer di GitHub, che salta giri anche per ore. Gira gratis (repo pubblico) e non consuma token Claude.
 # Nei log compaiono solo conteggi, mai contenuti.
@@ -43,20 +44,21 @@ jobs:
           TIPO: ${{ inputs.tipo }}
         run: |
           [ "$TIPO" = social ] && GLOB='media/social/lavori/*/stato' || GLOB='media/lezioni/*/stato'
-          conta() { git -C media fetch -q origin main && git -C media checkout -q -B main origin/main
-                    cat $GLOB 2>/dev/null | grep -c '^in_preparazione$' || true; }
-          # Fino a 30 minuti perché la routine parta, poi fino a 90 perché finisca; controllo ogni 2 minuti
-          iniziata=0
-          for giro in $(seq 1 60); do
-            n=$(conta)
-            if [ "$iniziata" = 0 ] && [ "$n" -gt 0 ]; then iniziata=1; echo "routine al lavoro (giro $giro)"; fi
-            if [ "$iniziata" = 1 ] && [ "$n" -eq 0 ]; then echo "routine finita (giro $giro)"; break; fi
-            if [ "$iniziata" = 0 ] && [ "$giro" -ge 15 ]; then echo "la routine non è partita in 30 minuti"; break; fi
-            sleep 120
+          stati() { git -C media fetch -q origin main && git -C media checkout -q -B main origin/main; grep -H . $GLOB 2>/dev/null | sort; }
+          stati > /tmp/inizio.txt
+          # Controllo ogni minuto, al massimo 2 ore; se la routine non tocca nessun lavoro in 30 minuti, rilancia comunque
+          for giro in $(seq 1 120); do
+            sleep 60
+            stati > /tmp/ora.txt
+            prep=$(grep -c ':in_preparazione$' /tmp/ora.txt || true)
+            esiti=$(comm -13 /tmp/inizio.txt /tmp/ora.txt | grep -cE ':(dati_pronti|bloccato|da_verificare)$' || true)
+            toccati=$(comm -13 /tmp/inizio.txt /tmp/ora.txt | wc -l)
+            if [ "$prep" -eq 0 ] && [ "$esiti" -gt 0 ]; then echo "routine finita (minuto $giro, $esiti esiti)"; break; fi
+            if [ "$giro" -ge 30 ] && [ "$toccati" -eq 0 ]; then echo "nessun lavoro toccato in 30 minuti"; break; fi
           done
 
       - name: Sveglia (render e lavoro successivo)
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run sveglia.yml -R "${{ github.repository }}"
+        run: gh workflow run sveglia.yml -R "${{ github.repository }}" -f dopo_routine=1

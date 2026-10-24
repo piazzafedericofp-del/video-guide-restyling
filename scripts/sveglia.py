@@ -14,6 +14,7 @@ from pathlib import Path
 
 M = Path(sys.argv[1])
 PROVA = "--prova" in sys.argv
+DOPO_ROUTINE = "--dopo-routine" in sys.argv  # avviata da attesa.yml: la routine ha finito, il segnale successivo può partire subito
 MEDIA = os.environ.get("MEDIA_REPO", "piazzafedericofp-del/video-guide-media")
 CODICE = os.environ.get("GITHUB_REPOSITORY", "piazzafedericofp-del/video-guide-restyling")
 ORIZZONTE = 21          # giorni: contenuti social "genera"/"variante" preparati solo se escono entro 3 settimane
@@ -163,7 +164,7 @@ def eta(r):
 
 
 for tipo, sveglia in (("social", sveglia_social), ("lezione", sveglia_lezioni)):
-    recenti = [r for r in release if r["tagName"].startswith(f"turno-{tipo}-") and eta(r) < PAUSA_SEGNALE]
+    recenti = [] if DOPO_ROUTINE else [r for r in release if r["tagName"].startswith(f"turno-{tipo}-") and eta(r) < PAUSA_SEGNALE]
     if sveglia and recenti:
         print(f"{tipo}: segnale già mandato {int(eta(recenti[0]))} minuti fa, aspetto")
     elif sveglia:
