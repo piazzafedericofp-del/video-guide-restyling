@@ -69,7 +69,9 @@ export type ReelMomentiProps = {
   readonly archi?: readonly Arco[];
   readonly assi?: readonly Asse[];
   readonly errore?: { readonly da: number; readonly meta: number; readonly a: number; readonly no: string; readonly si: string };
-  readonly dosaggio: { readonly da: number; readonly a: number; readonly ripetizioni: string; readonly serie: string; readonly etichetta: string };
+  // `parole` per le tenute (Federico, 24/10/2026: "3 ripetizioni × 1 serie da 30 s" non si capiva): es. "30 s" ["per lato", "volte"] e "3"
+  readonly dosaggio: { readonly da: number; readonly a: number; readonly ripetizioni: string; readonly serie: string; readonly etichetta: string;
+    readonly parole?: readonly [string, string] };
   readonly invito: { readonly da: number; readonly testo: string; readonly icona: string };
   readonly firma: string;
   readonly copertina?: Copertina; // copertina composta (scelta di Federico, 23/10 sera): fotogramma scelto, stretto, titolo sul petto
@@ -83,6 +85,9 @@ export type ReelMomentiProps = {
 export type Copertina = {
   readonly clip: number; readonly z: number; readonly cx: number; readonly cy: number; readonly ay: number; readonly titoloY: number;
   readonly righe?: readonly string[]; readonly gialla?: number | readonly number[]; readonly grande?: boolean;
+  // Sottotitolo (Federico, 24/10/2026): continua il titolo con il verbo del "perché" + lo sforzo ("Allena il piede, senza
+  // attrezzi"), 64 px bianco sotto il titolo; mai promesse di risultato né numeri di esercizi dedotti dai fotogrammi
+  readonly sotto?: string;
 };
 
 const contorno = (px: number): React.CSSProperties => ({ WebkitTextStroke: `${px}px black`, paintOrder: "stroke fill" });
@@ -344,9 +349,9 @@ const Dosaggio: React.FC<{ readonly d: ReelMomentiProps["dosaggio"]; readonly du
     <div style={{ position: "absolute", left: MARGINE, right: MARGINE, top: 262, display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
       opacity: interpolate(frame, [durata - 5, durata], [1, 0], CLAMP) }}>
       <div style={{ display: "flex", alignItems: "center", gap: 26 }}>
-        <Numero n={d.ripetizioni} parola="ripetizioni" da={0} />
+        <Numero n={d.ripetizioni} parola={d.parole?.[0] ?? "ripetizioni"} da={0} />
         <div style={{ fontFamily: "Inter", fontWeight: 900, fontSize: 70, color: GIALLO, ...contorno(9), marginBottom: 40, opacity: interpolate(frame, [0.57 * fps, 0.63 * fps], [0, 1], CLAMP) }}>×</div>
-        <Numero n={d.serie} parola="serie" da={0.6 * fps} />
+        <Numero n={d.serie} parola={d.parole?.[1] ?? "serie"} da={0.6 * fps} />
       </div>
       <div style={{ backgroundColor: AMBRA, color: NAVY, borderRadius: 14, padding: "6px 20px 8px", fontFamily: "Inter", fontWeight: 800, fontSize: corpo, letterSpacing: "0.04em", textTransform: "uppercase",
         opacity: interpolate(frame, [1.2 * fps, 1.3 * fps], [0, 1], CLAMP) }}>
@@ -417,6 +422,10 @@ export const CopertinaMomenti: React.FC<ReelMomentiProps> = (p) => {
       <UnPiano p={p} q={{ da: 0, clip: c.clip, z0: c.z, z1: c.z, cx: c.cx, cy: c.cy, ay: c.ay }} durata={1} primo />
       <AbsoluteFill style={{ background: "radial-gradient(ellipse 90% 75% at 50% 50%, transparent 62%, rgba(0, 0, 0, 0.32) 100%)" }} />
       <Titolo righe={c.righe ?? p.gancio.righe} gialla={c.righe ? c.gialla : p.gancio.gialla} grande={c.grande} durata={1} top={c.titoloY} fermo />
+      {c.sotto ? (
+        <div style={{ position: "absolute", left: 120, right: 120, top: c.titoloY + (c.righe ?? p.gancio.righe).length * (c.grande ? 150 : 88) * 1.08 + 28,
+          textAlign: "center", fontFamily: "Inter", fontWeight: 800, fontSize: 64, lineHeight: 1.12, color: "white", ...contorno(9) }}>{c.sotto}</div>
+      ) : null}
     </AbsoluteFill>
   );
 };
