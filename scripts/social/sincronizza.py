@@ -33,6 +33,9 @@ for pid, l in lavori.items():
         d.mkdir(exist_ok=True)
         nuovi += 1
     elif firma(precedente) == firma(l) and stato not in ("consegnato", "annullato"):
+        # Post spostato in un altro giorno: aggiorna la data (serve alla Sveglia per l'orizzonte dei 21 giorni)
+        if precedente.get("data") != l.get("data"):
+            (d / "lavoro.json").write_text(json.dumps({**precedente, "data": l.get("data")}, ensure_ascii=False, indent=1))
         continue  # già in lavorazione con le stesse istruzioni
     elif stato in ("in_preparazione", "dati_pronti", "in_render", "da_verificare"):
         continue  # cambiato durante la lavorazione: si riprende dopo la consegna
