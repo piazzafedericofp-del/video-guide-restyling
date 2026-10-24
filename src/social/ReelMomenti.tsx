@@ -60,7 +60,7 @@ export type ReelMomentiProps = {
   readonly voce?: { readonly file: string; readonly da: number }; // formato parlato: audio della voce dal secondo `da`
   readonly gancio: {
     readonly a: number; readonly righe: readonly string[]; // gialla l'ultima riga, o `gialla` (quella con il problema)
-    readonly gialla?: number;
+    readonly gialla?: number | readonly number[];
     readonly parlato?: { readonly y: number; readonly parole: readonly Parola[] }; // sottotitoli al posto del titolo
   };
   readonly perche: { readonly da: number; readonly a: number; readonly testo: string; readonly chiave: string };
@@ -82,7 +82,7 @@ export type ReelMomentiProps = {
 // `grande` = corpo fino a 150 px su 840 px di larghezza, perché nella griglia del profilo la copertina è larga 1/3 di schermo.
 export type Copertina = {
   readonly clip: number; readonly z: number; readonly cx: number; readonly cy: number; readonly ay: number; readonly titoloY: number;
-  readonly righe?: readonly string[]; readonly gialla?: number; readonly grande?: boolean;
+  readonly righe?: readonly string[]; readonly gialla?: number | readonly number[]; readonly grande?: boolean;
 };
 
 const contorno = (px: number): React.CSSProperties => ({ WebkitTextStroke: `${px}px black`, paintOrder: "stroke fill" });
@@ -233,7 +233,7 @@ const AsseCorpo: React.FC<{ readonly p: ReelMomentiProps; readonly asse: Asse }>
 
 // ─── 1 · Gancio ───
 const Titolo: React.FC<{ readonly righe: readonly string[]; readonly durata: number; readonly top?: number; readonly fermo?: boolean;
-  readonly gialla?: number; readonly grande?: boolean }> = ({ righe, durata, top = 270, fermo = false, gialla, grande = false }) => {
+  readonly gialla?: number | readonly number[]; readonly grande?: boolean }> = ({ righe, durata, top = 270, fermo = false, gialla, grande = false }) => {
   const adesso = useCurrentFrame();
   const frame = fermo ? 1000 : adesso; // ferma = titolo già entrato
   const larghezza = grande ? 840 : 696;
@@ -243,7 +243,7 @@ const Titolo: React.FC<{ readonly righe: readonly string[]; readonly durata: num
     <div style={{ position: "absolute", left: margine, right: margine, top, textAlign: "center", opacity: fermo ? 1 : interpolate(frame, [durata - 5, durata], [1, 0], CLAMP) }}>
       {righe.map((r, i) => (
         <div key={r} style={{ fontFamily: "Inter", fontWeight: 900, fontSize: corpo, lineHeight: 1.08, textTransform: "uppercase", letterSpacing: "-0.01em",
-          color: i === (gialla ?? righe.length - 1) ? GIALLO : "white", ...contorno(grande ? 14 : 11),
+          color: [gialla ?? righe.length - 1].flat().includes(i) ? GIALLO : "white", ...contorno(grande ? 14 : 11),
           scale: interpolate(frame, [i * 3 - 2, i * 3 + 9], [1.2, 1], { ...CLAMP, easing: SCATTO, output: "perceptual-scale" }) }}>
           {r}
         </div>
