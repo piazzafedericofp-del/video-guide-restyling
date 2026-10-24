@@ -5,18 +5,13 @@
 #    di sicurezza nella release "social-finiti". Nei log non compare nessun testo dei contenuti.
 name: Render social
 
+# Lo avvia la Sveglia (sveglia.yml) quando un lavoro ha i dati pronti; i lavori dalla dashboard li porta anche lei.
 on:
-  schedule:
-    - cron: "7,27,47 * * * *"
   workflow_dispatch:
     inputs:
       lavoro:
         description: "id del post (vuoto = il prossimo con i dati pronti)"
         required: false
-      attese:
-        description: "giri consecutivi senza lavoro (la catena si ferma dopo 6)"
-        required: false
-        default: "0"
 
 concurrency:
   group: social
@@ -215,34 +210,55 @@ jobs:
           gh release upload social-finiti codice/out/$ID.* -R "$MEDIA_REPO" --clobber
           cd media
           cp ../codice/out/foglio.jpg "social/lavori/$ID/foglio.jpg"
-          echo -n consegnato > "social/lavori/$ID/stato"; rm -f "social/lavori/$ID/errore.txt"
+          echo -n consegnato > "social/lavori/$ID/stato"; rm -f "social/lavori/$ID/errore.txt" "social/lavori/$ID/tentativi_render"
           git add "social/lavori/$ID"; git commit -q -m "social $ID: consegnato"
           for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
 
+      # Due casi, per non far girare a vuoto la routine (24/10/2026):
+      # - un controllo automatico non superato (testi fuori zona, contrasto…): "errore", la routine lo corregge UNA volta;
+      # - un guasto tecnico (download, strumenti, render): non è un problema dei dati, la routine non serve. Si riprova
+      #   il render una volta da solo; se fallisce di nuovo "errore_render" e avviso a Federico, senza altri giri.
       - name: Segna errore
         if: failure() && steps.scelta.outputs.id != ''
         env:
           ID: ${{ steps.scelta.outputs.id }}
         run: |
           cd media
-          echo -n errore > "social/lavori/$ID/stato"
-          { echo "Render fallito: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; echo; cat ../codice/out/controlli.txt 2>/dev/null | grep -v " ok$" | tail -40; } > "social/lavori/$ID/errore.txt"
-          git add "social/lavori/$ID"; git commit -q -m "social $ID: errore"
+          L="social/lavori/$ID"
+          { echo "Render fallito: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; echo; cat ../codice/out/controlli.txt 2>/dev/null | grep -v " ok$" | tail -40; } > "$L/errore.txt"
+          if grep -qE "✗|FUORI" ../codice/out/controlli.txt 2>/dev/null; then
+            echo -n errore > "$L/stato"; MSG="Un controllo automatico non è passato: la routine lo corregge una volta da sola."
+          else
+            N=$(cat "$L/tentativi_render" 2>/dev/null || echo 0)
+            if [ "$N" -lt 1 ]; then
+              echo -n dati_pronti > "$L/stato"; echo -n $((N+1)) > "$L/tentativi_render"; MSG=""
+            else
+              echo -n errore_render > "$L/stato"; MSG="Il render non è riuscito due volte per un problema tecnico: è fermo, va guardato in una sessione."
+            fi
+          fi
+          git add "$L"; git commit -q -m "social $ID: $(cat "$L/stato")"
           for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
-          python3 ../codice/scripts/social/avvisa.py "$ID" "La generazione non è riuscita al primo tentativo: la riprovo da sola al prossimo giro." > /dev/null || true
+          [ -z "$MSG" ] || python3 ../codice/scripts/social/avvisa.py "$ID" "$MSG" > /dev/null || true
 
-      - name: Avvia il giro successivo della catena
+      # Render annullato: i dati vanno bene, il lavoro torna in coda (non "errore", che farebbe ripartire la routine)
+      - name: Rimetti in coda se annullato
+        if: cancelled() && steps.scelta.outputs.id != ''
+        env:
+          ID: ${{ steps.scelta.outputs.id }}
+        run: |
+          cd media
+          echo -n dati_pronti > "social/lavori/$ID/stato"
+          git add "social/lavori/$ID/stato"; git commit -q -m "social $ID: render annullato, di nuovo in coda"
+          for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
+
+      - name: Giro successivo e sveglia
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-          ID: ${{ steps.scelta.outputs.id }}
         run: |
           git -C media pull -q || true
-          RESTO=$(python3 codice/scripts/social/scegli.py media --resto)
-          ATTESE="${{ github.event.inputs.attese }}"; ATTESE=${ATTESE:-0}
-          if [ -n "$ID" ]; then ATTESE=0; else ATTESE=$((ATTESE+1)); fi
-          echo "lavori ancora aperti: $RESTO, giri a vuoto: $ATTESE"
-          if [ "$RESTO" != "0" ] && [ "$ATTESE" -lt 6 ]; then
-            sleep 240
-            gh workflow run social.yml -R "${{ github.repository }}" -f attese="$ATTESE" || echo "Riavvio non riuscito: riparte con il timer"
+          if [ "${{ job.status }}" = "success" ] && [ -n "$(python3 codice/scripts/social/scegli.py media)" ]; then
+            gh workflow run social.yml -R "${{ github.repository }}"
           fi
+          # La routine può preparare il contenuto successivo
+          gh workflow run sveglia.yml -R "${{ github.repository }}" || true

@@ -12,16 +12,19 @@ if (!id || !uscita) {
   process.exit(1);
 }
 fs.mkdirSync(uscita, { recursive: true });
+// Nel cloud delle routine: Chromium preinstallato che passa dal proxy (scripts/cloud/prepara-ambiente.sh)
+const browserExecutable = process.env.BROWSER_EXECUTABLE || null;
 
 const serveUrl = await bundle({ entryPoint: path.resolve("src/social/index.ts") });
 const inputProps = { controllo: true };
-const composition = await selectComposition({ serveUrl, id, inputProps });
+const composition = await selectComposition({ serveUrl, id, inputProps, browserExecutable });
 const props = { ...composition.props, controllo: true };
 
 const misure = [];
 for (let frame = 0; frame < composition.durationInFrames; frame++) {
   const file = path.join(uscita, `slide-${String(frame + 1).padStart(2, "0")}.jpg`);
   await renderStill({
+    browserExecutable,
     composition,
     serveUrl,
     output: file,

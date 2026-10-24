@@ -1,0 +1,69 @@
+# Sveglia delle routine Claude (24/10/2026). Le routine "Social - generazione" e "Video guide - montaggio" non
+# hanno più un timer orario: partono solo quando questo flusso pubblica una release "turno-social-…" o
+# "turno-lezione-…" nel progetto privato, cioè solo quando c'è davvero un lavoro da preparare (regole in
+# scripts/sveglia.py, le stesse del §1 delle istruzioni delle routine). Gira gratis (repo pubblico) e non consuma
+# token. Avvia anche i render quando ci sono dati pronti e rimette in coda gli stati fermi.
+# Nei log compaiono solo id e conteggi, mai contenuti.
+name: Sveglia routine
+
+on:
+  schedule:
+    - cron: "4,14,24,34,44,54 * * * *"
+  workflow_dispatch:
+    inputs:
+      prova:
+        description: "1 = decide e stampa, ma non cambia niente"
+        required: false
+        default: "0"
+
+concurrency:
+  group: sveglia
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: read
+
+env:
+  GH_TOKEN: ${{ secrets.MEDIA_TOKEN }}
+  GENERATORE_TOKEN: ${{ secrets.GENERATORE_TOKEN }}
+  MEDIA_REPO: piazzafedericofp-del/video-guide-media
+
+jobs:
+  sveglia:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Progetto privato (solo stati e catalogo)
+        uses: actions/checkout@v4
+        with:
+          repository: piazzafedericofp-del/video-guide-media
+          token: ${{ secrets.MEDIA_TOKEN }}
+          path: media
+          sparse-checkout: |
+            catalogo.json
+            lezioni
+            social/lavori
+
+      - name: Codice
+        uses: actions/checkout@v4
+        with:
+          path: codice
+          sparse-checkout: scripts
+
+      - name: Lavori dalla dashboard
+        if: inputs.prova != '1'
+        run: |
+          python3 codice/scripts/social/sincronizza.py media
+          cd media
+          git config user.name "sveglia"; git config user.email "render@users.noreply.github.com"
+          git add -A social; git diff --cached --quiet || git commit -q -m "social: lavori dalla dashboard"
+          for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
+
+      - name: Decidi chi svegliare
+        env:
+          # gh workflow run su questo stesso repo: basta il token del flusso
+          GH_TOKEN_CODICE: ${{ github.token }}
+        run: |
+          cd media && git config user.name "sveglia"; git config user.email "render@users.noreply.github.com"; cd ..
+          python3 codice/scripts/sveglia.py media ${{ inputs.prova == '1' && '--prova' || '' }}

@@ -45,7 +45,7 @@ for pid, l in lavori.items():
         (d / vecchio).unlink(missing_ok=True)
 for d in radice.iterdir():
     if d.is_dir() and d.name not in lavori and (d / "stato").exists():
-        if (d / "stato").read_text().strip() in ("da_fare", "in_preparazione", "dati_pronti", "errore", "bloccato"):
+        if (d / "stato").read_text().strip() in ("da_fare", "in_preparazione", "dati_pronti", "errore", "errore_render", "bloccato"):
             (d / "stato").write_text("annullato")
             annullati += 1
 # Note della routine per Federico (lavoro bloccato: tema senza fonti, clip inadatta…): una volta sola, nella scheda del post

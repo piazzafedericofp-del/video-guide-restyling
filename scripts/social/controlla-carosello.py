@@ -60,8 +60,12 @@ def sfondo(img, voce, colore_testo):
     # colore domina: si prende il caso peggiore (i pixel più simili al testo).
     gruppi = (lontani // 8).astype(int)
     valori, conti = np.unique(gruppi, axis=0, return_counts=True)
-    if conti.max() >= len(lontani) * 0.3:
-        return valori[conti.argmax()] * 8 + 4
+    # Il gruppo più frequente si allarga ai pixel vicini (±14): un colore pieno al confine tra due gruppi
+    # (la sabbia #F7F3EC, rosso 247) col rumore JPEG si divide a metà e non deve passare per "foto" (23/10/2026)
+    centro = valori[conti.argmax()] * 8 + 4
+    vicini = lontani[np.linalg.norm(lontani - centro, axis=1) <= 14]
+    if len(vicini) >= len(lontani) * 0.3:
+        return vicini.mean(axis=0)
     distanze = np.linalg.norm(lontani - colore_testo, axis=1)
     return lontani[distanze <= np.percentile(distanze, 25)].mean(axis=0)
 

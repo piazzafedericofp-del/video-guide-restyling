@@ -1,21 +1,15 @@
 # Render delle lezioni delle video guide, una alla volta.
-# Ogni 15 minuti guarda il progetto privato video-guide-media: se una lezione ha lo stato "dati_pronti"
-# (montaggio preparato dalla routine Claude) la monta dai girati 4K originali (release "girati")
-# e salva il video finito nella release "restaurati". Nel codice e nei log non compare nessun contenuto delle guide.
+# Lo avvia la Sveglia (sveglia.yml) quando una lezione ha lo stato "dati_pronti" (montaggio preparato dalla routine
+# Claude): la monta dai girati 4K originali (release "girati") e salva il video finito nella release "restaurati".
+# Nel codice e nei log non compare nessun contenuto delle guide.
 name: Render lezione
 
 on:
-  schedule:
-    - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       lezione:
         description: "id della lezione (vuoto = la prossima in coda)"
         required: false
-      attese:
-        description: "giri consecutivi senza lavoro (la catena si ferma dopo 8)"
-        required: false
-        default: "0"
 
 concurrency:
   group: render
@@ -51,17 +45,11 @@ jobs:
         with:
           path: codice
 
-      - name: Scegli la lezione (se non c'è, aspetta fino a 50 minuti che la routine ne consegni una)
+      - name: Scegli la lezione
         id: scelta
         run: |
           ID="${{ github.event.inputs.lezione }}"
-          for i in $(seq 1 25); do
-            [ -n "$ID" ] && break
-            ID=$(python3 codice/scripts/scegli-lezione.py media)
-            [ -n "$ID" ] && break
-            [ "$(python3 codice/scripts/scegli-lezione.py media --resto)" = "0" ] && break
-            sleep 120; git -C media pull -q
-          done
+          [ -n "$ID" ] || ID=$(python3 codice/scripts/scegli-lezione.py media)
           echo "id=$ID" >> "$GITHUB_OUTPUT"
           [ -n "$ID" ] && echo "Lezione: $ID" || echo "Niente in coda"
 
@@ -189,19 +177,25 @@ jobs:
           git add "lezioni/$ID"; git commit -q -m "$ID: errore"
           for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
 
-      - name: Avvia il giro successivo della catena
+      # Render annullato (a mano o da GitHub): i dati vanno bene, la lezione torna in coda invece di restare "in_render"
+      - name: Rimetti in coda se annullato
+        if: cancelled() && steps.scelta.outputs.id != ''
+        env:
+          ID: ${{ steps.scelta.outputs.id }}
+        run: |
+          cd media
+          echo -n dati_pronti > "lezioni/$ID/stato"
+          git add "lezioni/$ID/stato"; git commit -q -m "$ID: render annullato, di nuovo in coda"
+          for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
+
+      - name: Giro successivo e sveglia
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-          ID: ${{ steps.scelta.outputs.id }}
         run: |
           git -C media pull -q || true
-          RESTO=$(python3 codice/scripts/scegli-lezione.py media --resto)
-          ATTESE="${{ github.event.inputs.attese }}"; ATTESE=${ATTESE:-0}
-          if [ -n "$ID" ]; then ATTESE=0; else ATTESE=$((ATTESE+1)); fi
-          echo "lezioni ancora in lavorazione: $RESTO, giri a vuoto: $ATTESE"
-          if [ "$RESTO" != "0" ] && [ "$ATTESE" -lt 8 ]; then
-            gh workflow run render.yml -R "${{ github.repository }}" -f attese="$ATTESE"
-          else
-            echo "Catena ferma (tutto finito o nessun lavoro da troppo tempo). Riparte con il timer o a mano."
+          if [ "${{ job.status }}" = "success" ] && [ -n "$(python3 codice/scripts/scegli-lezione.py media)" ]; then
+            gh workflow run render.yml -R "${{ github.repository }}"
           fi
+          # La routine può preparare la lezione successiva
+          gh workflow run sveglia.yml -R "${{ github.repository }}" || true

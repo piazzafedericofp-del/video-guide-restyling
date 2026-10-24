@@ -7,9 +7,11 @@ import fs from "node:fs";
 import path from "node:path";
 
 const uscita = process.argv[2];
+// Nel cloud delle routine: Chromium preinstallato che passa dal proxy (scripts/cloud/prepara-ambiente.sh)
+const browserExecutable = process.env.BROWSER_EXECUTABLE || null;
 fs.mkdirSync(uscita, { recursive: true });
 const serveUrl = await bundle({ entryPoint: path.resolve("src/social/index.ts") });
-const composition = await selectComposition({ serveUrl, id: "ReelMisura" });
+const composition = await selectComposition({ serveUrl, id: "ReelMisura", browserExecutable });
 const p = composition.props;
 const fine = composition.durationInFrames / 30;
 const momenti = [
@@ -24,6 +26,6 @@ const momenti = [
 ].filter((t) => t !== null && t >= 0 && t < fine);
 for (const t of momenti) {
   const frame = Math.round(t * 30);
-  await renderStill({ composition, serveUrl, frame, output: path.join(uscita, `f${String(frame).padStart(4, "0")}.png`), imageFormat: "png" });
+  await renderStill({ composition, serveUrl, frame, output: path.join(uscita, `f${String(frame).padStart(4, "0")}.png`), imageFormat: "png", browserExecutable });
 }
 console.log(`${momenti.length} fotogrammi`);
