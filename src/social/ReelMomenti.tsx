@@ -417,14 +417,17 @@ export const ReelMomenti: React.FC<ReelMomentiProps> = (p) => {
 // ─── Copertina (un fotogramma): V2 del laboratorio, scelta da Federico il 23/10 sera ───
 export const CopertinaMomenti: React.FC<ReelMomentiProps> = (p) => {
   const c = p.copertina ?? { clip: 1, z: 1.4, cx: p.larghezza / 2, cy: 0, ay: 0, titoloY: 1130 };
+  // Stessa misura del Titolo: il sottotitolo parte subito sotto l'ultima riga, a qualunque corpo sia sceso il titolo
+  const righe = c.righe ?? p.gancio.righe;
+  const corpo = Math.min(c.grande ? 150 : 88, ...righe.map((r) => fitText({ text: r.toUpperCase(), withinWidth: c.grande ? 840 : 696, fontFamily: "Inter", fontWeight: 900, letterSpacing: "-0.01em" }).fontSize));
   return (
     <AbsoluteFill style={{ backgroundColor: "black", overflow: "hidden" }}>
       <UnPiano p={p} q={{ da: 0, clip: c.clip, z0: c.z, z1: c.z, cx: c.cx, cy: c.cy, ay: c.ay }} durata={1} primo />
       <AbsoluteFill style={{ background: "radial-gradient(ellipse 90% 75% at 50% 50%, transparent 62%, rgba(0, 0, 0, 0.32) 100%)" }} />
       <Titolo righe={c.righe ?? p.gancio.righe} gialla={c.righe ? c.gialla : p.gancio.gialla} grande={c.grande} durata={1} top={c.titoloY} fermo />
       {c.sotto ? (
-        <div style={{ position: "absolute", left: 120, right: 120, top: c.titoloY + (c.righe ?? p.gancio.righe).length * (c.grande ? 150 : 88) * 1.08 + 28,
-          textAlign: "center", fontFamily: "Inter", fontWeight: 800, fontSize: 64, lineHeight: 1.12, color: "white", ...contorno(9) }}>{c.sotto}</div>
+        <div style={{ position: "absolute", left: 120, right: 120, top: c.titoloY + righe.length * corpo * 1.08 + 26,
+          textAlign: "center", fontFamily: "Inter", fontWeight: 800, fontSize: 64, lineHeight: 1.12, color: "white", textWrap: "balance", ...contorno(9) } as React.CSSProperties}>{c.sotto}</div>
       ) : null}
     </AbsoluteFill>
   );
