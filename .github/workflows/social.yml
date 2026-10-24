@@ -174,12 +174,17 @@ jobs:
           cp "$D" public/dati.json
           cp ../media/social/ritratto.png public/ritratto.png
           mkdir -p girato out/consegna
-          # Foto: fotogramma di un girato delle guide o di una clip dell'archivio, oppure immagine IA caricata in dashboard
+          # Foto: fotogramma di un girato delle guide o di una clip dell'archivio, immagine caricata in dashboard (r2:),
+          # oppure immagine generata qui con l'IA gratuita di Cloudflare dalla descrizione scritta dalla routine (ia, campo prompt)
           N=$(jq '.foto | length' "$D")
           for ((i=0; i<N; i++)); do
             FILE=$(jq -r ".foto[$i].file" "$D"); SORG=$(jq -r ".foto[$i].sorgente" "$D")
             CROP=$(jq -r ".foto[$i].crop // empty" "$D"); SEC=$(jq -r ".foto[$i].secondo // 0" "$D")
             case "$SORG" in
+              ia)   python3 -c "import sys; sys.path.insert(0,'scripts/social'); from dashboard import chiama, scarica; chiama('/api/generatore/immagine', 'POST', {'prompt': sys.argv[1], 'chiave': sys.argv[2]}); scarica(sys.argv[2], 'girato/ia')" \
+                      "$(jq -r ".foto[$i].prompt" "$D")" "post/$ID/copertina-ia-$i.jpg"
+                    ffmpeg -nostdin -v error -i girato/ia -vf "${CROP:+crop=$CROP,}scale=1080:840:force_original_aspect_ratio=increase,crop=1080:840" -q:v 2 "public/$FILE"
+                    cp "public/$FILE" "../media/social/lavori/$ID/copertina-ia-$i.jpg" ;;
               r2:*) python3 -c "import sys; sys.path.insert(0,'scripts/social'); from dashboard import scarica; scarica(sys.argv[1], 'girato/ia')" "${SORG#r2:}"
                     ffmpeg -nostdin -v error -i girato/ia -vf "${CROP:+crop=$CROP,}scale=1080:840:force_original_aspect_ratio=increase,crop=1080:840" -q:v 2 "public/$FILE" ;;
               girati:*|clip:*)
