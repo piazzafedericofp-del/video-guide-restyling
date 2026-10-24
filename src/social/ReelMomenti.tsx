@@ -59,7 +59,8 @@ export type ReelMomentiProps = {
   readonly piani: readonly Piano[];
   readonly voce?: { readonly file: string; readonly da: number }; // formato parlato: audio della voce dal secondo `da`
   readonly gancio: {
-    readonly a: number; readonly righe: readonly string[]; // l'ultima riga è gialla
+    readonly a: number; readonly righe: readonly string[]; // gialla l'ultima riga, o `gialla` (quella con il problema)
+    readonly gialla?: number;
     readonly parlato?: { readonly y: number; readonly parole: readonly Parola[] }; // sottotitoli al posto del titolo
   };
   readonly perche: { readonly da: number; readonly a: number; readonly testo: string; readonly chiave: string };
@@ -76,8 +77,12 @@ export type ReelMomentiProps = {
 };
 // Copertina: il fotogramma `clip` della sorgente con l'inquadratura {z, cx, cy, ay} (stessa formula dei piani),
 // titolo del gancio fermo con la riga alta a `titoloY` px (sul petto, dentro il ritaglio 3:4 della griglia: 240–1680)
+// Titolo di copertina (Federico, 24/10/2026): `righe` = testo corto solo per la copertina (2-4 parole, il problema per
+// primo) al posto delle righe del gancio; `gialla` = indice della riga gialla (quella con il problema, di norma la prima);
+// `grande` = corpo fino a 150 px su 840 px di larghezza, perché nella griglia del profilo la copertina è larga 1/3 di schermo.
 export type Copertina = {
   readonly clip: number; readonly z: number; readonly cx: number; readonly cy: number; readonly ay: number; readonly titoloY: number;
+  readonly righe?: readonly string[]; readonly gialla?: number; readonly grande?: boolean;
 };
 
 const contorno = (px: number): React.CSSProperties => ({ WebkitTextStroke: `${px}px black`, paintOrder: "stroke fill" });
@@ -227,15 +232,18 @@ const AsseCorpo: React.FC<{ readonly p: ReelMomentiProps; readonly asse: Asse }>
 };
 
 // ─── 1 · Gancio ───
-const Titolo: React.FC<{ readonly righe: readonly string[]; readonly durata: number; readonly top?: number; readonly fermo?: boolean }> = ({ righe, durata, top = 270, fermo = false }) => {
+const Titolo: React.FC<{ readonly righe: readonly string[]; readonly durata: number; readonly top?: number; readonly fermo?: boolean;
+  readonly gialla?: number; readonly grande?: boolean }> = ({ righe, durata, top = 270, fermo = false, gialla, grande = false }) => {
   const adesso = useCurrentFrame();
   const frame = fermo ? 1000 : adesso; // ferma = titolo già entrato
-  const corpo = Math.min(88, ...righe.map((r) => fitText({ text: r.toUpperCase(), withinWidth: 696, fontFamily: "Inter", fontWeight: 900, letterSpacing: "-0.01em" }).fontSize));
+  const larghezza = grande ? 840 : 696;
+  const corpo = Math.min(grande ? 150 : 88, ...righe.map((r) => fitText({ text: r.toUpperCase(), withinWidth: larghezza, fontFamily: "Inter", fontWeight: 900, letterSpacing: "-0.01em" }).fontSize));
+  const margine = (1080 - larghezza) / 2 - 12;
   return (
-    <div style={{ position: "absolute", left: MARGINE, right: MARGINE, top, textAlign: "center", opacity: fermo ? 1 : interpolate(frame, [durata - 5, durata], [1, 0], CLAMP) }}>
+    <div style={{ position: "absolute", left: margine, right: margine, top, textAlign: "center", opacity: fermo ? 1 : interpolate(frame, [durata - 5, durata], [1, 0], CLAMP) }}>
       {righe.map((r, i) => (
         <div key={r} style={{ fontFamily: "Inter", fontWeight: 900, fontSize: corpo, lineHeight: 1.08, textTransform: "uppercase", letterSpacing: "-0.01em",
-          color: i === righe.length - 1 ? GIALLO : "white", ...contorno(11),
+          color: i === (gialla ?? righe.length - 1) ? GIALLO : "white", ...contorno(grande ? 14 : 11),
           scale: interpolate(frame, [i * 3 - 2, i * 3 + 9], [1.2, 1], { ...CLAMP, easing: SCATTO, output: "perceptual-scale" }) }}>
           {r}
         </div>
@@ -378,7 +386,7 @@ export const ReelMomenti: React.FC<ReelMomentiProps> = (p) => {
       {!misura ? (p.assi ?? []).map((asse, i) => <Da key={`asse${i}`} nome={`Asse ${i + 1}`} da={asse.da} a={asse.a}><AsseCorpo p={p} asse={asse} /></Da>) : null}
 
       <Da nome="1 Gancio" da={0} a={gancio.a}>
-        {gancio.parlato ? <Sottotitoli y={gancio.parlato.y} parole={gancio.parlato.parole} /> : <Titolo righe={gancio.righe} durata={f(fps, gancio.a)} />}
+        {gancio.parlato ? <Sottotitoli y={gancio.parlato.y} parole={gancio.parlato.parole} /> : <Titolo righe={gancio.righe} gialla={gancio.gialla} durata={f(fps, gancio.a)} />}
       </Da>
       <Da nome="2 Perché" da={perche.da} a={perche.a}><Perche testo={perche.testo} chiave={perche.chiave} durata={f(fps, perche.a - perche.da)} /></Da>
       {passi.voci.map((v, i) => {
@@ -408,7 +416,7 @@ export const CopertinaMomenti: React.FC<ReelMomentiProps> = (p) => {
     <AbsoluteFill style={{ backgroundColor: "black", overflow: "hidden" }}>
       <UnPiano p={p} q={{ da: 0, clip: c.clip, z0: c.z, z1: c.z, cx: c.cx, cy: c.cy, ay: c.ay }} durata={1} primo />
       <AbsoluteFill style={{ background: "radial-gradient(ellipse 90% 75% at 50% 50%, transparent 62%, rgba(0, 0, 0, 0.32) 100%)" }} />
-      <Titolo righe={p.gancio.righe} durata={1} top={c.titoloY} fermo />
+      <Titolo righe={c.righe ?? p.gancio.righe} gialla={c.righe ? c.gialla : p.gancio.gialla} grande={c.grande} durata={1} top={c.titoloY} fermo />
     </AbsoluteFill>
   );
 };
