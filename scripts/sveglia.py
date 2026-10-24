@@ -175,6 +175,8 @@ for tipo, sveglia in (("social", sveglia_social), ("lezione", sveglia_lezioni)):
             tipo_rel = ["--prerelease"] if tipo == "social" else ["--latest=false"]
             gh("release", "create", tag, "-R", MEDIA, *tipo_rel, "--target", "main",
                "--title", tag, "--notes", "Segnale per la routine (si cancella da solo dopo 2 ore).")
+            # Chi aspetta la fine della routine e poi rilancia la Sveglia (render e lavoro successivo): attesa.yml
+            gh("workflow", "run", "attesa.yml", "-R", CODICE, "-f", f"tipo={tipo}", codice=True)
 
 for r in release:
     if r["tagName"].startswith("turno-") and eta(r) > 120 and not PROVA:

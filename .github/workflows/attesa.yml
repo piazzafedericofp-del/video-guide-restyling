@@ -1,0 +1,62 @@
+# Attesa della routine (24/10/2026). La Sveglia lo avvia subito dopo aver svegliato una routine Claude: aspetta che
+# la routine cominci (un lavoro "in_preparazione") e che finisca (nessun lavoro "in_preparazione"), poi avvia di nuovo
+# la Sveglia, che fa partire il render e il lavoro successivo. Così la catena routine → render → lavoro successivo non
+# dipende dal timer di GitHub, che salta giri anche per ore. Gira gratis (repo pubblico) e non consuma token Claude.
+# Nei log compaiono solo conteggi, mai contenuti.
+name: Attesa routine
+
+on:
+  workflow_dispatch:
+    inputs:
+      tipo:
+        description: "social | lezione"
+        required: true
+
+concurrency:
+  group: attesa-${{ inputs.tipo }}
+  cancel-in-progress: true
+
+permissions:
+  actions: write
+  contents: read
+
+env:
+  GH_TOKEN: ${{ secrets.MEDIA_TOKEN }}
+
+jobs:
+  attesa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 130
+    steps:
+      - name: Progetto privato (solo stati)
+        uses: actions/checkout@v4
+        with:
+          repository: piazzafedericofp-del/video-guide-media
+          token: ${{ secrets.MEDIA_TOKEN }}
+          path: media
+          sparse-checkout: |
+            lezioni
+            social/lavori
+
+      - name: Aspetta che la routine cominci e finisca
+        env:
+          TIPO: ${{ inputs.tipo }}
+        run: |
+          [ "$TIPO" = social ] && GLOB='media/social/lavori/*/stato' || GLOB='media/lezioni/*/stato'
+          conta() { git -C media fetch -q origin main && git -C media checkout -q -B main origin/main
+                    cat $GLOB 2>/dev/null | grep -c '^in_preparazione$' || true; }
+          # Fino a 30 minuti perché la routine parta, poi fino a 90 perché finisca; controllo ogni 2 minuti
+          iniziata=0
+          for giro in $(seq 1 60); do
+            n=$(conta)
+            if [ "$iniziata" = 0 ] && [ "$n" -gt 0 ]; then iniziata=1; echo "routine al lavoro (giro $giro)"; fi
+            if [ "$iniziata" = 1 ] && [ "$n" -eq 0 ]; then echo "routine finita (giro $giro)"; break; fi
+            if [ "$iniziata" = 0 ] && [ "$giro" -ge 15 ]; then echo "la routine non è partita in 30 minuti"; break; fi
+            sleep 120
+          done
+
+      - name: Sveglia (render e lavoro successivo)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run sveglia.yml -R "${{ github.repository }}"

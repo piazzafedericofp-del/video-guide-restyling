@@ -6,9 +6,12 @@
 # Nei log compaiono solo id e conteggi, mai contenuti.
 name: Sveglia routine
 
+# Chi la avvia (24/10/2026, a eventi): la dashboard quando Federico fa qualcosa che crea lavoro e 3 volte al giorno
+# con il suo timer (Cloudflare, affidabile); la fine di ogni render; attesa.yml quando una routine finisce.
+# Il timer di GitHub qui sotto è solo una riserva (salta giri anche per ore).
 on:
   schedule:
-    - cron: "4,14,24,34,44,54 * * * *"
+    - cron: "17 * * * *"
   workflow_dispatch:
     inputs:
       prova:
