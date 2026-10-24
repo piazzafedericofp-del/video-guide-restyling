@@ -233,9 +233,10 @@ const Slide1: React.FC<CaroselloProps> = ({ stile, slide }) => {
         <div style={{ position: "absolute", left: 0, right: 0, top: 640, height: 210, background: `linear-gradient(180deg, rgba(11,36,71,0) 0%, ${NAVY_800} 100%)` }} />
         {/* AI Act art. 50(4), dal 2/8/2026: immagine realistica di una persona reale generata con l'IA
             → dichiarazione visibile al primo sguardo, non un'etichetta sbiadita */}
+        {/* Discreta (scelta di Federico del 24/10/2026): corta e piccola, ma leggibile (28 px, minimo del controllo) */}
         {s.fotoIA ? (
-          <div style={{ position: "absolute", left: 90, top: 80, color: "white", fontSize: 28, fontWeight: 600, background: "rgba(11,36,71,0.75)", padding: "8px 18px", borderRadius: 30 }}>
-            Immagine generata con IA
+          <div style={{ position: "absolute", left: 90, top: 82, color: "white", fontSize: 28, fontWeight: 500, background: "rgba(11,36,71,0.7)", padding: "4px 14px", borderRadius: 24 }}>
+            Immagine IA
           </div>
         ) : null}
         <Cornice n={n} tot={tot} colore="#CED3DA" scuro suFoto>
