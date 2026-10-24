@@ -170,7 +170,10 @@ for tipo, sveglia in (("social", sveglia_social), ("lezione", sveglia_lezioni)):
         tag = f"turno-{tipo}-{ADESSO:%Y%m%d-%H%M}"
         print(f"{tipo}: sveglio la routine ({tag})")
         if not PROVA:
-            gh("release", "create", tag, "-R", MEDIA, "--prerelease", "--target", "main",
+            # Due eventi diversi, così una routine non si sveglia per il segnale dell'altra:
+            # social = pre-release (evento "prereleased"), lezioni = release normale (evento "released")
+            tipo_rel = ["--prerelease"] if tipo == "social" else ["--latest=false"]
+            gh("release", "create", tag, "-R", MEDIA, *tipo_rel, "--target", "main",
                "--title", tag, "--notes", "Segnale per la routine (si cancella da solo dopo 2 ore).")
 
 for r in release:
