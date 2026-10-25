@@ -301,8 +301,9 @@ const Slide1: React.FC<CaroselloProps> = ({ stile, slide }) => {
         <Cornice n={n} tot={tot} colore={t.debole}>
           <div style={{ position: "absolute", left: 90, right: 90, top: 0, bottom: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
             <div style={{ color: t.accento, fontSize: 30, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 28 }}>{s.etichetta}</div>
+            {/* Numero lungo ("6 settimane"): a 200 px va su due righe e esce dal margine (mal di schiena 24/10) */}
             {s.numero ? (
-              <div style={{ color: t.accento, fontSize: pitto ? 136 : 200, fontWeight: 900, lineHeight: 1, letterSpacing: "-0.04em", marginBottom: 30 }}>{s.numero}</div>
+              <div style={{ color: t.accento, fontSize: pitto || s.numero.length > 8 ? 136 : 200, fontWeight: 900, lineHeight: 1, letterSpacing: "-0.04em", marginBottom: 30 }}>{s.numero}</div>
             ) : null}
             {pitto ? (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(20, 45px)", rowGap: 0, marginBottom: 30 }}>
