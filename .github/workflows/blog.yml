@@ -1,0 +1,141 @@
+# Blog automatico di federicopiazza.com (26/10/2026, skill blog-articoli nel repo federicopiazza.com).
+# Lo avvia solo la dashboard (src/blog.ts), quando c'è lavoro: un articolo arrivato alla sua data, una modifica o
+# un "Pubblica" di Federico. Nessun timer: gira gratis (repo pubblico) e non consuma token Claude.
+# 1. legge la coda dalla dashboard e scrive video-guide-media/blog/<id>/lavoro.json;
+# 2. "pubblica": prova il merge del ramo claude/blog-<id> in main con l'API di GitHub (zero token); se il token
+#    non ha il permesso, lo chiede alla routine;
+# 3. "scrivi" / "modifica": pubblica qui una release "blog-<id>-<giro>" (in questo repo, così non sveglia le
+#    routine social e lezioni, che ascoltano le release di video-guide-media): è l'evento della routine "Blog - articoli";
+# 4. aspetta risultato.json della routine (al massimo 2 ore) e lo consegna alla dashboard; poi cancella le release.
+# Nei log compaiono solo id e stati, mai i testi.
+name: Blog articoli
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: blog
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  GH_TOKEN: ${{ secrets.MEDIA_TOKEN }}
+  REVISIONE_TOKEN: ${{ secrets.REVISIONE_TOKEN }}
+  MEDIA_REPO: piazzafedericofp-del/video-guide-media
+  SITO_REPO: piazzafedericofp-del/federicopiazza.com
+  DASHBOARD: https://fisioconfede-social.fisioconfede-social.workers.dev
+
+jobs:
+  blog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 140
+    steps:
+      - name: Progetto privato (solo la cartella blog)
+        uses: actions/checkout@v4
+        with:
+          repository: piazzafedericofp-del/video-guide-media
+          token: ${{ secrets.MEDIA_TOKEN }}
+          path: media
+          sparse-checkout: |
+            blog
+
+      - name: Richieste della dashboard
+        run: |
+          python3 - <<'EOF'
+          import json, os, urllib.request
+          B, T = os.environ["DASHBOARD"], os.environ["REVISIONE_TOKEN"]
+          r = urllib.request.Request(B + "/api/blog/coda", headers={"authorization": "Bearer " + T, "user-agent": "blog-actions/1.0"})
+          d = json.load(urllib.request.urlopen(r, timeout=90))
+          for a in d["coda"]:
+              a["temi_in_coda"] = d["temi_in_coda"]
+              os.makedirs(f"media/blog/{a['id']}", exist_ok=True)
+              json.dump(a, open(f"media/blog/{a['id']}/lavoro.json", "w"), ensure_ascii=False, indent=1)
+              print(a["id"], a["richiesta"], "giro", a["giro"])
+          json.dump(d["coda"], open("/tmp/coda.json", "w"))
+          EOF
+          cd media
+          git config user.name "blog"; git config user.email "render@users.noreply.github.com"
+          git add -A blog
+          if ! git diff --cached --quiet; then
+            git commit -q -m "blog: richieste"
+            for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
+          fi
+
+      - name: Pubblicazioni (merge) e segnali alla routine
+        run: |
+          python3 - <<'EOF'
+          import json, os, subprocess, urllib.error, urllib.request
+          B, T = os.environ["DASHBOARD"], os.environ["REVISIONE_TOKEN"]
+          def stato(id, s, giro, risultato=None):
+              corpo = {"id": id, "stato": s, "giro": giro, **({"risultato": risultato} if risultato else {})}
+              r = urllib.request.Request(B + "/api/blog/stato", method="POST", data=json.dumps(corpo).encode(),
+                  headers={"authorization": "Bearer " + T, "content-type": "application/json", "user-agent": "blog-actions/1.0"})
+              urllib.request.urlopen(r, timeout=60); print(id, "→", s)
+          def gh(metodo, percorso, corpo=None):
+              r = urllib.request.Request("https://api.github.com" + percorso, method=metodo, data=json.dumps(corpo).encode() if corpo else None,
+                  headers={"authorization": "Bearer " + os.environ["GH_TOKEN"], "accept": "application/vnd.github+json", "user-agent": "blog-actions/1.0"})
+              try:
+                  with urllib.request.urlopen(r, timeout=60) as x: return x.status, json.loads(x.read() or b"{}")
+              except urllib.error.HTTPError as e: return e.code, {}
+          attesa = []
+          for a in json.load(open("/tmp/coda.json")):
+              ramo = (a.get("risultato") or {}).get("ramo") or f"claude/blog-{a['id']}"
+              if a["richiesta"] == "pubblica":
+                  codice, d = gh("POST", f"/repos/{os.environ['SITO_REPO']}/merges",
+                                 {"base": "main", "head": ramo, "commit_message": f"Blog: {a['titolo']} (approvato da Federico)"})
+                  if codice in (201, 204):
+                      gh("DELETE", f"/repos/{os.environ['SITO_REPO']}/git/refs/heads/{ramo}")
+                      stato(a["id"], "pubblicato", a["giro"], {"commit": d.get("sha", ""), "pubblicato_con": "merge API"})
+                      continue
+                  if codice == 409:
+                      stato(a["id"], "errore", a["giro"], {"messaggio": "Il ramo è in conflitto con il sito attuale: premi Riprova e lo riallineo."})
+                      continue
+                  print(a["id"], "merge via API non permesso (", codice, "): lo fa la routine")
+              tag = f"blog-{a['id']}-{a['giro']}"
+              subprocess.run(["gh", "release", "create", tag, "-R", os.environ["GITHUB_REPOSITORY"], "--title", tag,
+                              "--notes", f"Richiesta: {a['richiesta']} (articolo {a['id']}, giro {a['giro']})"],
+                             check=True, env={**os.environ, "GH_TOKEN": os.environ["RELEASE_TOKEN"]})
+              stato(a["id"], "in_pubblicazione" if a["richiesta"] == "pubblica" else "in_scrittura", a["giro"])
+              attesa.append({"id": a["id"], "giro": a["giro"]})
+          json.dump(attesa, open("/tmp/attesa.json", "w"))
+          EOF
+        env:
+          RELEASE_TOKEN: ${{ github.token }}
+
+      - name: Attesa della routine e consegna
+        run: |
+          python3 - <<'EOF'
+          import json, os, subprocess, time, urllib.request
+          B, T = os.environ["DASHBOARD"], os.environ["REVISIONE_TOKEN"]
+          def stato(corpo):
+              r = urllib.request.Request(B + "/api/blog/stato", method="POST", data=json.dumps(corpo).encode(),
+                  headers={"authorization": "Bearer " + T, "content-type": "application/json", "user-agent": "blog-actions/1.0"})
+              urllib.request.urlopen(r, timeout=60)
+          attesa = {a["id"]: a["giro"] for a in json.load(open("/tmp/attesa.json"))}
+          for minuto in range(1, 121):
+              if not attesa: break
+              time.sleep(60)
+              subprocess.run("git -C media fetch -q origin main && git -C media checkout -q -B main origin/main", shell=True, check=True)
+              for id, giro in list(attesa.items()):
+                  f = f"media/blog/{id}/risultato.json"
+                  if not os.path.exists(f): continue
+                  r = json.load(open(f))
+                  if int(r.get("giro", 0)) < giro: continue
+                  stato({"id": id, "stato": r["stato"], "giro": giro, "risultato": r})
+                  print(id, "consegnato:", r["stato"], "al minuto", minuto)
+                  del attesa[id]
+          for id, giro in attesa.items():
+              stato({"id": id, "stato": "errore", "giro": giro, "risultato": {"messaggio": "La routine non ha consegnato entro 2 ore. Premi Riprova."}})
+              print(id, "nessuna risposta in 2 ore")
+          EOF
+
+      - name: Pulizia delle release vecchie
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list -R "$GITHUB_REPOSITORY" --limit 100 --json tagName,createdAt \
+            --jq '.[] | select(.tagName | startswith("blog-")) | select((now - (.createdAt | fromdateiso8601)) > 3600) | .tagName' |
+          while read -r t; do gh release delete "$t" -R "$GITHUB_REPOSITORY" --yes --cleanup-tag; done
