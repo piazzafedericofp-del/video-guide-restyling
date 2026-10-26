@@ -104,20 +104,49 @@ jobs:
         env:
           RELEASE_TOKEN: ${{ github.token }}
 
-      - name: Attesa della routine e consegna
+      - name: Attesa della routine, immagini e consegna
+        env:
+          GENERATORE_TOKEN: ${{ secrets.GENERATORE_TOKEN }}
         run: |
           python3 - <<'EOF'
-          import json, os, subprocess, time, urllib.request
+          import json, os, subprocess, time, urllib.parse, urllib.request
           B, T = os.environ["DASHBOARD"], os.environ["REVISIONE_TOKEN"]
+          G = os.environ["GENERATORE_TOKEN"]
           def stato(corpo):
               r = urllib.request.Request(B + "/api/blog/stato", method="POST", data=json.dumps(corpo).encode(),
                   headers={"authorization": "Bearer " + T, "content-type": "application/json", "user-agent": "blog-actions/1.0"})
               urllib.request.urlopen(r, timeout=60)
+          # Immagine dell'articolo (26/10/2026): la routine scrive immagine-richiesta.json {n, prompt}; qui la si genera
+          # con la dashboard (Workers AI, gratis), la si ritaglia in 3:2 e la si mette in media/blog/<id>/immagine-<n>.jpg,
+          # dove la routine, ancora al lavoro, la guarda e la usa
+          def immagine(id):
+              f = f"media/blog/{id}/immagine-richiesta.json"
+              if not os.path.exists(f): return
+              q = json.load(open(f)); n = int(q.get("n", 1))
+              uscita = f"media/blog/{id}/immagine-{n}.jpg"
+              if os.path.exists(uscita): return
+              chiave = f"blog/{id}/immagine-{n}.jpg"
+              h = {"authorization": "Bearer " + G, "content-type": "application/json", "user-agent": "blog-actions/1.0"}
+              for t in range(3):
+                  try:
+                      urllib.request.urlopen(urllib.request.Request(B + "/api/generatore/immagine", method="POST", headers=h,
+                          data=json.dumps({"prompt": q["prompt"], "chiave": chiave}).encode()), timeout=120); break
+                  except Exception as e: print(id, "immagine, tentativo", t + 1, e)
+              else: return
+              grezza = urllib.request.urlopen(urllib.request.Request(B + "/api/media/" + urllib.parse.quote(chiave, safe=""), headers=h), timeout=60).read()
+              open("/tmp/grezza.jpg", "wb").write(grezza)
+              subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", "/tmp/grezza.jpg", "-vf", "crop=iw:iw*2/3:0:(ih-iw*2/3)/2", "-q:v", "3", uscita], check=True)
+              subprocess.run(f"cd media && git add blog/{id}/immagine-{n}.jpg && git commit -q -m 'blog: immagine {id} {n}' && "
+                             "for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 5; done", shell=True, check=True)
+              print(id, "immagine", n, "pronta")
           attesa = {a["id"]: a["giro"] for a in json.load(open("/tmp/attesa.json"))}
-          for minuto in range(1, 121):
+          # Controllo ogni 20 secondi (l'immagine la routine la aspetta), al massimo 2 ore
+          for giro_attesa in range(1, 361):
               if not attesa: break
-              time.sleep(60)
+              time.sleep(20)
+              minuto = giro_attesa // 3
               subprocess.run("git -C media fetch -q origin main && git -C media checkout -q -B main origin/main", shell=True, check=True)
+              for id in list(attesa): immagine(id)
               for id, giro in list(attesa.items()):
                   f = f"media/blog/{id}/risultato.json"
                   if not os.path.exists(f): continue
