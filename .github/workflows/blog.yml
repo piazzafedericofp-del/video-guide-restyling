@@ -49,7 +49,7 @@ jobs:
           r = urllib.request.Request(B + "/api/blog/coda", headers={"authorization": "Bearer " + T, "user-agent": "blog-actions/1.0"})
           d = json.load(urllib.request.urlopen(r, timeout=90))
           for a in d["coda"]:
-              a["temi_in_coda"] = d["temi_in_coda"]
+              a["temi_in_coda"], a["servono_proposte"] = d["temi_in_coda"], d.get("servono_proposte", False)
               os.makedirs(f"media/blog/{a['id']}", exist_ok=True)
               json.dump(a, open(f"media/blog/{a['id']}/lavoro.json", "w"), ensure_ascii=False, indent=1)
               print(a["id"], a["richiesta"], "giro", a["giro"])

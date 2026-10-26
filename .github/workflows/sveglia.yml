@@ -51,6 +51,7 @@ jobs:
             catalogo.json
             lezioni
             social/lavori
+            social/sveglie.json
 
       - name: Codice
         uses: actions/checkout@v4

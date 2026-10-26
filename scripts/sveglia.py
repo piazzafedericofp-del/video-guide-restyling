@@ -17,7 +17,8 @@ PROVA = "--prova" in sys.argv
 DOPO_ROUTINE = "--dopo-routine" in sys.argv  # avviata da attesa.yml: la routine ha finito, il segnale successivo può partire subito
 MEDIA = os.environ.get("MEDIA_REPO", "piazzafedericofp-del/video-guide-media")
 CODICE = os.environ.get("GITHUB_REPOSITORY", "piazzafedericofp-del/video-guide-restyling")
-ORIZZONTE = 21          # giorni: contenuti social "genera"/"variante" preparati solo se escono entro 3 settimane
+ORIZZONTE = 45          # giorni: contenuti social "genera"/"variante" preparati solo se escono entro 45 giorni (Federico, 26/10)
+MAX_NUOVI_GIORNO = 4    # contenuti nuovi preparati al giorno: l'arretrato si spalma e non consuma in un colpo il limite di 5 ore
 PAUSA_SEGNALE = 20      # minuti: niente secondo segnale dello stesso tipo prima di così
 FERMO_RENDER = 6 * 60   # minuti in "in_render" senza un render in corso → di nuovo "dati_pronti"
 FERMO_PREP = 3 * 60     # minuti in "in_preparazione" → la routine si è interrotta
@@ -119,6 +120,25 @@ prep_s = sum(s == "in_preparazione" for s in stato_s.values())
 cand_s = [i for i, s in stato_s.items() if candidato_social(i, s)]
 futuri_s = sum(s == "da_fare" for s in stato_s.values()) - sum(stato_s[i] == "da_fare" for i in cand_s)
 sveglia_social = in_coda_s < 2 and prep_s == 0 and bool(cand_s)
+# Correzioni, copertine da verificare e modifiche di Federico passano sempre; i contenuti nuovi al massimo
+# MAX_NUOVI_GIORNO al giorno (conteggio in social/sveglie.json, scritto quando parte un segnale per un contenuto nuovo)
+
+
+def urgente_s(i):
+    if stato_s[i] in ("da_verificare", "errore"):
+        return True
+    try:
+        return json.loads((lavori[i] / "lavoro.json").read_text()).get("lavoro") == "modifica"
+    except Exception:
+        return False
+
+
+CONTEGGIO = M / "social" / "sveglie.json"
+conteggio = json.loads(CONTEGGIO.read_text()) if CONTEGGIO.exists() else {}
+solo_nuovi_s = sveglia_social and not any(urgente_s(i) for i in cand_s)
+if solo_nuovi_s and conteggio.get(str(OGGI), 0) >= MAX_NUOVI_GIORNO:
+    print(f"social: già {conteggio[str(OGGI)]} contenuti nuovi oggi (massimo {MAX_NUOVI_GIORNO}), riprendo domani")
+    sveglia_social = False
 print(f"social: in coda al render {in_coda_s}, in preparazione {prep_s}, da preparare ora {len(cand_s)}, "
       f"oltre {ORIZZONTE} giorni {futuri_s} → {'sveglia' if sveglia_social else 'niente'}")
 
@@ -141,13 +161,17 @@ print(f"lezioni: in coda al render {in_coda_l}, in preparazione o da verificare 
       f"→ {'sveglia' if sveglia_lezioni else 'niente'}")
 
 # ---------------- Salva gli stati sbloccati ----------------
-if cambiati and not PROVA:
-    subprocess.run(["git", "-C", str(M), "add", *cambiati], check=True)
-    subprocess.run(["git", "-C", str(M), "commit", "-q", "-m", "sveglia: stati fermi rimessi in coda"], check=True)
+def salva(file, messaggio):
+    subprocess.run(["git", "-C", str(M), "add", *file], check=True)
+    subprocess.run(["git", "-C", str(M), "commit", "-q", "-m", messaggio], check=True)
     for _ in range(5):
         if subprocess.run(["git", "-C", str(M), "pull", "-q", "--rebase"]).returncode == 0 and \
            subprocess.run(["git", "-C", str(M), "push", "-q"]).returncode == 0:
             break
+
+
+if cambiati and not PROVA:
+    salva(cambiati, "sveglia: stati fermi rimessi in coda")
 
 # ---------------- Render con dati pronti e nessun render in corso ----------------
 for flusso, pronti, attivo in (("social.yml", any(s == "dati_pronti" for s in stato_s.values()), render_social),
@@ -180,6 +204,11 @@ for tipo, sveglia in (("social", sveglia_social), ("lezione", sveglia_lezioni)):
                "--title", tag, "--notes", "Segnale per la routine (si cancella da solo dopo 2 ore).")
             # Chi aspetta la fine della routine e poi rilancia la Sveglia (render e lavoro successivo): attesa.yml
             gh("workflow", "run", "attesa.yml", "-R", CODICE, "-f", f"tipo={tipo}", codice=True)
+            if tipo == "social" and solo_nuovi_s:
+                conteggio = {k: v for k, v in conteggio.items() if k >= str(OGGI - dt.timedelta(days=7))}
+                conteggio[str(OGGI)] = conteggio.get(str(OGGI), 0) + 1
+                CONTEGGIO.write_text(json.dumps(conteggio))
+                salva(["social/sveglie.json"], "sveglia: conteggio dei contenuti nuovi del giorno")
 
 for r in release:
     if r["tagName"].startswith("turno-") and eta(r) > 120 and not PROVA:
