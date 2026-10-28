@@ -17,7 +17,8 @@ PROVA = "--prova" in sys.argv
 DOPO_ROUTINE = "--dopo-routine" in sys.argv  # avviata da attesa.yml: la routine ha finito, il segnale successivo può partire subito
 MEDIA = os.environ.get("MEDIA_REPO", "piazzafedericofp-del/video-guide-media")
 CODICE = os.environ.get("GITHUB_REPOSITORY", "piazzafedericofp-del/video-guide-restyling")
-ORIZZONTE = 45          # giorni: contenuti social "genera"/"variante" preparati solo se escono entro 45 giorni (Federico, 26/10)
+# Nessun orizzonte di giorni (Federico, 28/10/2026): in lavori/ arriva solo ciò che Federico ha approvato in dashboard
+# (proposta approvata o brief), quindi si prepara tutto, dal più vicino all'uscita
 MAX_NUOVI_GIORNO = 4    # contenuti nuovi preparati al giorno: l'arretrato si spalma e non consuma in un colpo il limite di 5 ore
 PAUSA_SEGNALE = 20      # minuti: niente secondo segnale dello stesso tipo prima di così
 FERMO_RENDER = 6 * 60   # minuti in "in_render" senza un render in corso → di nuovo "dati_pronti"
@@ -104,21 +105,12 @@ def candidato_social(i, s):
         l = json.loads((d / "lavoro.json").read_text())
     except Exception:
         return False
-    if l.get("lavoro") == "modifica":   # richiesta esplicita di Federico: sempre
-        return True
-    data = (l.get("data") or "")[:10]
-    if not data:
-        return True
-    try:
-        return dt.date.fromisoformat(data) <= OGGI + dt.timedelta(days=ORIZZONTE)
-    except ValueError:
-        return True
+    return bool(l.get("lavoro"))   # approvato da Federico in dashboard: sempre (i nuovi al massimo MAX_NUOVI_GIORNO al giorno)
 
 
 in_coda_s = sum(s in ("dati_pronti", "in_render") for s in stato_s.values())
 prep_s = sum(s == "in_preparazione" for s in stato_s.values())
 cand_s = [i for i, s in stato_s.items() if candidato_social(i, s)]
-futuri_s = sum(s == "da_fare" for s in stato_s.values()) - sum(stato_s[i] == "da_fare" for i in cand_s)
 sveglia_social = in_coda_s < 2 and prep_s == 0 and bool(cand_s)
 # Correzioni, copertine da verificare e modifiche di Federico passano sempre; i contenuti nuovi al massimo
 # MAX_NUOVI_GIORNO al giorno (conteggio in social/sveglie.json, scritto quando parte un segnale per un contenuto nuovo)
@@ -139,8 +131,8 @@ solo_nuovi_s = sveglia_social and not any(urgente_s(i) for i in cand_s)
 if solo_nuovi_s and conteggio.get(str(OGGI), 0) >= MAX_NUOVI_GIORNO:
     print(f"social: già {conteggio[str(OGGI)]} contenuti nuovi oggi (massimo {MAX_NUOVI_GIORNO}), riprendo domani")
     sveglia_social = False
-print(f"social: in coda al render {in_coda_s}, in preparazione {prep_s}, da preparare ora {len(cand_s)}, "
-      f"oltre {ORIZZONTE} giorni {futuri_s} → {'sveglia' if sveglia_social else 'niente'}")
+print(f"social: in coda al render {in_coda_s}, in preparazione {prep_s}, da preparare {len(cand_s)} "
+      f"→ {'sveglia' if sveglia_social else 'niente'}")
 
 # ---------------- Lezioni ----------------
 cat = sorted(json.loads((M / "catalogo.json").read_text())["lezioni"], key=lambda l: l["ordine"]) if (M / "catalogo.json").exists() else []
