@@ -1,7 +1,9 @@
-import { Composition, staticFile } from "remotion";
+import { Composition, Still, staticFile } from "remotion";
 import { Carosello, durataAnimata, type CaroselloProps } from "./Carosello";
 import { EsercizioStruttura, type EsercizioStrutturaProps } from "./EsercizioStruttura";
 import { CopertinaMomenti, ReelMomenti, type ReelMomentiProps } from "./ReelMomenti";
+import { Storia, type StoriaProps } from "./Storia";
+import { DURATA as DURATA_STORIA, FPS as FPS_STORIA, StoriaVideo } from "./StoriaVideo";
 
 // Render in cloud dei contenuti social di @fisioconfede: un contenuto alla volta, i dati arrivano da
 // public/dati.json (scritto dalla routine nel progetto privato). Nel codice pubblico non c'è nessun testo.
@@ -26,6 +28,8 @@ const reelVuoto: PropsReel = {
   archi: [], firma: "@fisioconfede", carattere: "inter",
 };
 const caroselloVuoto: CaroselloProps = { stile: "foto", slide: [{ tipo: "testo", titolo: "", corpo: "" }], avanzamento: "barra", firma: true };
+
+const storiaVuota: StoriaProps = { formato: "carosello", social: "instagram", immagine: "storia-slide.jpg", slide: 8, variante: 1 };
 
 const leggi = async <T,>() => (await fetch(staticFile("dati.json")).then((r) => r.json())) as T;
 
@@ -94,6 +98,28 @@ export const RootSocial: React.FC = () => (
         }}
       />
     ))}
+    {/* Storie (skill storie-social): slide 1 pulita del carosello (senza barra e "Scorri →"), poi la cornice con le
+        frasi fisse, in immagine (carosello) o in video di 8 s (Reel). I dati della cornice arrivano con --props. */}
+    <Composition
+      id="CaroselloStoria"
+      component={Carosello}
+      fps={1}
+      width={1080}
+      height={1350}
+      durationInFrames={1}
+      defaultProps={{ ...caroselloVuoto, storia: true }}
+      calculateMetadata={async ({ props }) => {
+        try {
+          const d = await leggi<DatiCarosello>();
+          return { props: { stile: "foto" as const, avanzamento: "barra" as const, firma: true, slide: d.props.slide, storia: true } };
+        } catch {
+          return { props };
+        }
+      }}
+    />
+    <Still id="Storia" component={Storia} width={1080} height={1920} defaultProps={storiaVuota} />
+    <Composition id="StoriaVideo" component={StoriaVideo} fps={FPS_STORIA} durationInFrames={DURATA_STORIA} width={1080} height={1920}
+      defaultProps={{ ...storiaVuota, formato: "reel" as const, video: "storia-video.mp4", fineVideo: 5.5 }} />
     {/* Slide animate per Instagram (28/10/2026): una slide (indice) a 30 fps, durata da durataAnimata */}
     <Composition
       id="CaroselloAnimato"

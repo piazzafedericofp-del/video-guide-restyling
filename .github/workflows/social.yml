@@ -177,28 +177,9 @@ jobs:
           cp ../media/social/ritratto.png public/ritratto.png
           # Chiusura verso una video guida (28/10/2026): un movimento della guida, video e fotogramma fermo dall'archivio privato
           for G in $(jq -r '[.props.slide[]? | .guida? // empty | .video, .fermo] | .[]' "$D"); do cp "../media/social/guide/$G" "public/$G"; done
-          mkdir -p girato out/consegna
-          # Foto: fotogramma di un girato delle guide o di una clip dell'archivio, immagine caricata in dashboard (r2:),
-          # oppure immagine generata qui con l'IA gratuita di Cloudflare dalla descrizione scritta dalla routine (ia, campo prompt)
-          N=$(jq '.foto | length' "$D")
-          for ((i=0; i<N; i++)); do
-            FILE=$(jq -r ".foto[$i].file" "$D"); SORG=$(jq -r ".foto[$i].sorgente" "$D")
-            CROP=$(jq -r ".foto[$i].crop // empty" "$D"); SEC=$(jq -r ".foto[$i].secondo // 0" "$D")
-            case "$SORG" in
-              ia)   python3 -c "import sys; sys.path.insert(0,'scripts/social'); from dashboard import chiama, scarica; chiama('/api/generatore/immagine', 'POST', {'prompt': sys.argv[1], 'chiave': sys.argv[2]}); scarica(sys.argv[2], 'girato/ia')" \
-                      "$(jq -r ".foto[$i].prompt" "$D")" "post/$ID/copertina-ia-$i.jpg"
-                    ffmpeg -nostdin -v error -i girato/ia -vf "${CROP:+crop=$CROP,}scale=1080:840:force_original_aspect_ratio=increase,crop=1080:840" -q:v 2 "public/$FILE"
-                    cp "public/$FILE" "../media/social/lavori/$ID/copertina-ia-$i.jpg" ;;
-              r2:*) python3 -c "import sys; sys.path.insert(0,'scripts/social'); from dashboard import scarica; scarica(sys.argv[1], 'girato/ia')" "${SORG#r2:}"
-                    ffmpeg -nostdin -v error -i girato/ia -vf "${CROP:+crop=$CROP,}scale=1080:840:force_original_aspect_ratio=increase,crop=1080:840" -q:v 2 "public/$FILE" ;;
-              girati:*|clip:*)
-                    REL=girati; PAT="${SORG#girati:}"; [ "${SORG%%:*}" = clip ] && { REL=clip-social; PAT="${SORG#clip:}.*"; }
-                    gh release download "$REL" -R "$MEDIA_REPO" -p "$PAT" -D girato --clobber < /dev/null
-                    SRC=$(ls -t girato/* | head -1)
-                    ffmpeg -nostdin -v error -ss "$SEC" -i "$SRC" -frames:v 1 -vf "${CROP:+crop=$CROP,}scale=1080:840:force_original_aspect_ratio=increase,crop=1080:840,eq=contrast=1.07:saturation=1.1:gamma=0.97,colorbalance=rs=0.03:bs=-0.03:rm=0.02:bm=-0.02,unsharp=5:5:0.4" -q:v 2 "public/$FILE"
-                    rm -f girato/* ;;
-            esac
-          done
+          mkdir -p out/consegna
+          # Foto: girato, clip, immagine in dashboard (r2:) o generata con l'IA (ia, campo prompt)
+          bash scripts/social/prepara-foto.sh "$ID" "$D"
           node scripts/social/misura-carosello.mjs Carosello out/consegna/c45
           node scripts/social/misura-carosello.mjs Carosello916 out/consegna/c916
           # Esito completo solo nel progetto privato (errore.txt): nei log pubblici niente testi
@@ -226,6 +207,16 @@ jobs:
           echo -n da_verificare > "$L/stato"
           git add "$L"; git commit -q -m "social $ID: da_verificare (copertina IA)"
           for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
+
+      # ---------------- Storie (skill storie-social) ----------------
+      # Zero token: 3 varianti × Instagram e Facebook dal materiale appena montato. Se non riescono il post esce lo stesso.
+      - name: Storie
+        if: steps.scelta.outputs.id != '' && steps.carosello.outputs.verifica != '1'
+        continue-on-error: true
+        env:
+          ID: ${{ steps.scelta.outputs.id }}
+        working-directory: codice
+        run: bash scripts/social/rendi-storie.sh "${{ steps.scelta.outputs.formato }}" out/consegna "../media/social/lavori/$ID/dati.json"
 
       # ---------------- Consegna ----------------
       - name: Consegna alla dashboard

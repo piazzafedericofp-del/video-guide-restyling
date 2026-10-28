@@ -1,0 +1,92 @@
+# Storie dei post già consegnati (skill storie-social): Reel montati sul Mac e post consegnati prima delle storie.
+# Avvio a mano (una volta, o per un post). Zero token: nessuna routine Claude, solo render e caricamento.
+# La dashboard elenca i post approvati o da approvare, non ancora usciti, senza storie (/api/generatore/storie-mancanti).
+name: Storie dei post già pronti
+
+on:
+  workflow_dispatch:
+    inputs:
+      post:
+        description: "id del post (vuoto = tutti quelli senza storie)"
+        required: false
+
+concurrency:
+  group: social
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  GH_TOKEN: ${{ secrets.MEDIA_TOKEN }}
+  GENERATORE_TOKEN: ${{ secrets.GENERATORE_TOKEN }}
+  MEDIA_REPO: piazzafedericofp-del/video-guide-media
+
+jobs:
+  storie:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Progetto privato (solo la parte social)
+        uses: actions/checkout@v4
+        with:
+          repository: piazzafedericofp-del/video-guide-media
+          token: ${{ secrets.MEDIA_TOKEN }}
+          path: media
+          sparse-checkout: |
+            social/lavori
+            social/ritratto.png
+
+      - name: Codice
+        uses: actions/checkout@v4
+        with:
+          path: codice
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: codice/package-lock.json
+
+      - name: Strumenti
+        working-directory: codice
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg jq libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libgbm1 \
+            libxcomposite1 libxdamage1 libxrandr2 libpango-1.0-0 libcairo2 libasound2t64 libcups2 >/dev/null
+          pip install -q pillow
+          npm ci --no-audit --no-fund
+          npx remotion browser ensure
+
+      # Un post alla volta: se uno non riesce si passa al successivo (resta senza storia, il post esce lo stesso)
+      - name: Storie
+        working-directory: codice
+        env:
+          POST: ${{ github.event.inputs.post }}
+        run: |
+          python3 -c "import sys, json; sys.path.insert(0,'scripts/social'); from dashboard import chiama; print(json.dumps(chiama('/api/generatore/storie-mancanti' + ('?id=' + sys.argv[1] if sys.argv[1] else ''))))" "$POST" > mancanti.json
+          echo "Post senza storie: $(jq length mancanti.json)"
+          cp ../media/social/ritratto.png public/ritratto.png
+          FALLITI=0
+          for i in $(seq 0 $(( $(jq length mancanti.json) - 1 ))); do
+            ID=$(jq -r ".[$i].id" mancanti.json); FORMATO=$(jq -r ".[$i].formato" mancanti.json)
+            D="../media/social/lavori/$ID/dati.json"
+            rm -rf out; mkdir -p out/consegna/c45
+            if (
+              set -euo pipefail
+              scarica() { python3 -c "import sys; sys.path.insert(0,'scripts/social'); from dashboard import scarica; scarica(sys.argv[1], sys.argv[2])" "$1" "$2"; }
+              if [ "$FORMATO" = reel ]; then
+                scarica "$(jq -r ".[$i].media_key" mancanti.json)" out/consegna/video.mp4
+                scarica "$(jq -r ".[$i].copertina_key" mancanti.json)" out/consegna/copertina.jpg
+              else
+                # Slide 1 pulita: si rifà dai dati del lavoro (foto già confermate), il resto del carosello non cambia
+                [ -f "$D" ] || { echo "$ID: manca il lavoro"; exit 1; }
+                cp "$D" public/dati.json
+                bash scripts/social/prepara-foto.sh "$ID" "$D" --senza-ia
+                for k in $(jq -r ".[$i].slide_keys | fromjson | .[]" mancanti.json); do touch "out/consegna/c45/$(basename "$k")"; done
+              fi
+              bash scripts/social/rendi-storie.sh "$FORMATO" out/consegna "$D"
+              python3 scripts/social/storie.py "$ID" out/consegna > /dev/null
+            ); then echo "$ID: storie pronte"; else echo "$ID: storie non riuscite"; FALLITI=$((FALLITI+1)); fi
+          done
+          [ "$FALLITI" = 0 ]

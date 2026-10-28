@@ -75,9 +75,11 @@ export type Slide =
 // che l'interfaccia di TikTok lascia libera (testi tra x 90–900 e y 250–1420, come nei Reel).
 // firma: piccola firma (ritratto intero in tessera + nome e titolo) in basso nelle slide interne, al posto di
 // @fisioconfede. Approvata da Federico il 23/10/2026: il titolo "Dr. … osteopata e fisioterapista" pesa più della foto.
+// storia (29/10/2026): slide 1 per la storia di Instagram e Facebook (skill storie-social), senza barra e senza
+// "Scorri →": nella storia la barra si confonde con quella dell'app e non c'è niente da scorrere.
 // animato + indice (28/10/2026): una sola slide a 30 fps, gli elementi entrano col tempo (MP4 per Instagram);
 // senza, ogni fotogramma è una slide già al suo stato finale (JPEG per tutti i social).
-export type CaroselloProps = { stile: Stile; slide: Slide[]; avanzamento?: "numeri" | "barra"; controllo?: boolean; verticale?: boolean; firma?: boolean; animato?: boolean; indice?: number };
+export type CaroselloProps = { stile: Stile; slide: Slide[]; avanzamento?: "numeri" | "barra"; controllo?: boolean; verticale?: boolean; firma?: boolean; animato?: boolean; indice?: number; storia?: boolean };
 
 // Slide che su Instagram escono animate: barre, pochi omini, chiusura con la guida. Durata in secondi.
 export const durataAnimata = (s: Slide) =>
@@ -97,7 +99,7 @@ const entra = (f: number, fps: number, da: number) => spring({ frame: f - da * f
 
 const SCALA_VERTICALE = 0.9;
 
-const Avanzamento = createContext<{ barra: boolean; scuro: boolean; firma: boolean }>({ barra: false, scuro: false, firma: false });
+const Avanzamento = createContext<{ barra: boolean; scuro: boolean; firma: boolean; storia?: boolean }>({ barra: false, scuro: false, firma: false });
 
 // Ritratto intero (ritratto.png ha lo sfondo bianco): in una tessera bianca, si vede su bianco e su sabbia.
 // Federico 23/10: il solo viso nel cerchio "è brutto", vuole la figura intera.
@@ -185,13 +187,13 @@ const Cornice: React.FC<{ n: number; tot: number; colore: string; scuro?: boolea
   return (
     <>
       {children}
-      {av.barra ? <Barra n={n} tot={tot} scuro={scuro ?? av.scuro} suFoto={suFoto} /> : null}
+      {av.barra && !av.storia ? <Barra n={n} tot={tot} scuro={scuro ?? av.scuro} suFoto={suFoto} /> : null}
       {av.firma && n > 1 ? (
         <Firma coloreNome={(scuro ?? av.scuro) ? "white" : NAVY_800} colore={colore} />
       ) : (
         <div style={{ position: "absolute", left: 90, bottom: 64, fontSize: 28, fontWeight: 600, color: colore }}>@fisioconfede</div>
       )}
-      {n < tot && !av.barra ? (
+      {n < tot && !av.barra && !av.storia ? (
         <div style={{ position: "absolute", right: 90, bottom: 64, fontSize: 28, fontWeight: 600, color: colore }}>
           {n}/{tot}
         </div>
@@ -221,7 +223,7 @@ export const Carosello: React.FC<CaroselloProps> = (props) => {
   const contenuto = <Slide1 {...props} indice={indice} />;
   return (
     <Tempo.Provider value={!!props.animato}>
-    <Avanzamento.Provider value={{ barra: props.avanzamento === "barra", scuro: props.stile === "navy", firma: !!props.firma }}>
+    <Avanzamento.Provider value={{ barra: props.avanzamento === "barra", scuro: props.stile === "navy", firma: !!props.firma, storia: !!props.storia }}>
       {props.verticale ? (
         <AbsoluteFill style={{ backgroundColor: sfondoSlide(props, indice) }}>
           <div style={{ position: "absolute", left: 9, top: 210, width: 1080, height: 1350, transform: `scale(${SCALA_VERTICALE})`, transformOrigin: "0 0" }}>
@@ -251,7 +253,7 @@ const Contenuto: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div style={{ position: "absolute", left: 90, right: 90, top: 100, bottom: 230, display: "flex", flexDirection: "column", justifyContent: "center" }}>{children}</div>
 );
 
-const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, indice }) => {
+const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, indice, storia }) => {
   const { f, fps, animato } = useTempo();
   const s = slide[indice];
   const n = indice + 1;
@@ -284,7 +286,7 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
             </div>
             <div style={{ color: "#E2E8F0", fontSize: 36, fontWeight: 500, lineHeight: 1.35, marginTop: 30 }}>{s.sotto}</div>
           </div>
-          <div style={{ position: "absolute", right: 90, top: 80, color: "white", fontSize: 30, fontWeight: 700, background: "rgba(11,36,71,0.75)", padding: "10px 22px", borderRadius: 40 }}>Scorri →</div>
+          {storia ? null : <div style={{ position: "absolute", right: 90, top: 80, color: "white", fontSize: 30, fontWeight: 700, background: "rgba(11,36,71,0.75)", padding: "10px 22px", borderRadius: 40 }}>Scorri →</div>}
         </Cornice>
       </AbsoluteFill>
     );
@@ -305,9 +307,11 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
             </div>
             <div style={{ color: t.corpo, fontSize: 40, fontWeight: 500, lineHeight: 1.35, marginTop: 44, maxWidth: 820 }}>{s.sotto}</div>
           </div>
-          <div style={{ position: "absolute", right: 90, bottom: 150, color: scuro ? NAVY_800 : "white", background: scuro ? AMBER_400 : BRAND_700, fontSize: 32, fontWeight: 700, padding: "16px 30px", borderRadius: 50 }}>
-            Scorri →
-          </div>
+          {storia ? null : (
+            <div style={{ position: "absolute", right: 90, bottom: 150, color: scuro ? NAVY_800 : "white", background: scuro ? AMBER_400 : BRAND_700, fontSize: 32, fontWeight: 700, padding: "16px 30px", borderRadius: 50 }}>
+              Scorri →
+            </div>
+          )}
         </Cornice>
       </AbsoluteFill>
     );
