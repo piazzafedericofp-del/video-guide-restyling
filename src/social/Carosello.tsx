@@ -553,28 +553,29 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
     return (
       <AbsoluteFill style={{ ...base, backgroundColor: "white" }}>
         <BarraSeServe n={n} tot={tot} />
-        <div style={{ position: "absolute", left: 90, right: 90, top: 96 }}>
+        {/* colonna tra la barra e la firma: il video prende lo spazio che resta (In breve lungo → video più basso) */}
+        <div style={{ position: "absolute", left: 90, right: 90, top: 96, bottom: 216, display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
           {s.inBreve ? (
-            <div style={{ background: NAVY_800, borderRadius: 16, padding: "22px 30px" }}>
+            <div style={{ flex: "none", alignSelf: "stretch", background: NAVY_800, borderRadius: 16, padding: "22px 30px" }}>
               <div style={{ color: AMBER_400, fontSize: 28, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase" }}>In breve</div>
               <div style={{ color: "white", fontSize: 36, fontWeight: 700, lineHeight: 1.28, marginTop: 6 }}>{s.inBreve}</div>
             </div>
           ) : null}
-          <div style={{ color: NAVY_800, fontSize: 56, fontWeight: 800, lineHeight: 1.08, marginTop: 30 }}>{s.titolo}</div>
-          <div style={{ position: "relative", marginTop: 24, width: 900, height: 430, borderRadius: 22, overflow: "hidden", background: NAVY_800 }}>
+          <div style={{ flex: "none", color: NAVY_800, fontSize: 56, fontWeight: 800, lineHeight: 1.08, marginTop: 30 }}>{s.titolo}</div>
+          <div style={{ position: "relative", flex: "1 1 0", minHeight: 240, maxHeight: 430, marginTop: 24, width: 900, borderRadius: 22, overflow: "hidden", background: NAVY_800 }}>
             <div style={{ position: "absolute", inset: 0, transform: `scale(${scala})` }}>
               {animato ? (
-                <OffthreadVideo src={staticFile(g.video)} muted style={{ width: 900, height: 430, objectFit: "cover" }} />
+                <OffthreadVideo src={staticFile(g.video)} muted style={{ width: 900, height: "100%", objectFit: "cover" }} />
               ) : (
-                <Img src={staticFile(g.fermo)} style={{ width: 900, height: 430, objectFit: "cover" }} />
+                <Img src={staticFile(g.fermo)} style={{ width: 900, height: "100%", objectFit: "cover" }} />
               )}
             </div>
           </div>
           {/* nome lungo ("… Sblocco Schiena di Emergenza"): più piccolo per restare su una riga */}
-          <div style={{ color: NAVY_800, fontSize: g.nome.length > 32 ? 37 : 44, fontWeight: 800, lineHeight: 1.1, marginTop: 24, letterSpacing: g.nome.length > 32 ? "-0.02em" : undefined }}>{g.nome}</div>
-          <div style={{ color: SLATE_600, fontSize: 32, fontWeight: 500, lineHeight: 1.3, marginTop: 8 }}>{g.contenuto}</div>
-          <div style={{ display: "inline-block", marginTop: 22, background: BRAND_700, color: "white", fontSize: 38, fontWeight: 700, padding: "18px 34px", borderRadius: 14 }}>{s.pulsante}</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 22, width: "fit-content", background: SAND_50, color: NAVY_800, fontSize: 32, fontWeight: 700, padding: "14px 24px", borderRadius: 14 }}>
+          <div style={{ flex: "none", color: NAVY_800, fontSize: g.nome.length > 32 ? 37 : 44, fontWeight: 800, lineHeight: 1.1, marginTop: 24, letterSpacing: g.nome.length > 32 ? "-0.02em" : undefined }}>{g.nome}</div>
+          <div style={{ flex: "none", color: SLATE_600, fontSize: 32, fontWeight: 500, lineHeight: 1.3, marginTop: 8 }}>{g.contenuto}</div>
+          <div style={{ flex: "none", display: "inline-block", marginTop: 22, background: BRAND_700, color: "white", fontSize: 38, fontWeight: 700, padding: "18px 34px", borderRadius: 14 }}>{s.pulsante}</div>
+          <div style={{ flex: "none", display: "flex", alignItems: "center", gap: 14, marginTop: 22, width: "fit-content", background: SAND_50, color: NAVY_800, fontSize: 32, fontWeight: 700, padding: "14px 24px", borderRadius: 14 }}>
             <svg width={34} height={34} viewBox="0 0 24 24" fill="none" stroke={BRAND_700} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z" /><path d="m21.854 2.147-10.94 10.939" /></svg>
             {s.invito.replace(/^📩\s*/u, "")}
           </div>
