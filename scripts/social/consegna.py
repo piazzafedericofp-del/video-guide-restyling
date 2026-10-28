@@ -1,6 +1,7 @@
 """Consegna un contenuto finito alla dashboard: carica i file in R2 (post/<id>/…) e i testi, poi lo mette "Da approvare".
 Uso: python3 consegna.py <id post> <cartella uscite> <dati.json>
-Uscite attese: Reel → video.mp4, copertina.jpg · Carosello → c45/slide-NN.jpg, c916/slide-NN.jpg"""
+Uscite attese: Reel → video.mp4, copertina.jpg · Carosello → c45/slide-NN.jpg, c916/slide-NN.jpg
+(+ c45/slide-NN.mp4 per le slide animate: la dashboard le usa su Instagram al posto della JPEG con lo stesso nome)"""
 import json
 import sys
 from pathlib import Path
@@ -19,6 +20,8 @@ else:
     k45, k916 = [], []
     for f in sorted((uscite / "c45").glob("slide-*.jpg")):
         carica(f, f"post/{pid}/{f.name}", "image/jpeg"); k45.append(f"post/{pid}/{f.name}")
+    for f in sorted((uscite / "c45").glob("slide-*.mp4")):
+        carica(f, f"post/{pid}/{f.name}", "video/mp4")
     for f in sorted((uscite / "c916").glob("slide-*.jpg")):
         carica(f, f"post/{pid}/tt/{f.name}", "image/jpeg"); k916.append(f"post/{pid}/tt/{f.name}")
     campi |= {"slide_keys": json.dumps(k45), "slide_keys_tt": json.dumps(k916), "media_key": k45[0], "copertina_key": k45[0],

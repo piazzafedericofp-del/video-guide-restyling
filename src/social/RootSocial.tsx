@@ -1,5 +1,5 @@
 import { Composition, staticFile } from "remotion";
-import { Carosello, type CaroselloProps } from "./Carosello";
+import { Carosello, durataAnimata, type CaroselloProps } from "./Carosello";
 import { EsercizioStruttura, type EsercizioStrutturaProps } from "./EsercizioStruttura";
 import { CopertinaMomenti, ReelMomenti, type ReelMomentiProps } from "./ReelMomenti";
 
@@ -94,5 +94,27 @@ export const RootSocial: React.FC = () => (
         }}
       />
     ))}
+    {/* Slide animate per Instagram (28/10/2026): una slide (indice) a 30 fps, durata da durataAnimata */}
+    <Composition
+      id="CaroselloAnimato"
+      component={Carosello}
+      fps={30}
+      width={1080}
+      height={1350}
+      durationInFrames={30}
+      defaultProps={{ ...caroselloVuoto, animato: true, indice: 0 }}
+      calculateMetadata={async ({ props }) => {
+        try {
+          const d = await leggi<DatiCarosello>();
+          const indice = props.indice ?? 0;
+          return {
+            props: { stile: "foto" as const, avanzamento: "barra" as const, firma: true, slide: d.props.slide, animato: true, indice },
+            durationInFrames: Math.max(1, durataAnimata(d.props.slide[indice]) * 30),
+          };
+        } catch {
+          return { props };
+        }
+      }}
+    />
   </>
 );

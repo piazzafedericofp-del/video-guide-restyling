@@ -1,6 +1,6 @@
 import { loadFont } from "@remotion/fonts";
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { AbsoluteFill, continueRender, delayRender, Img, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, continueRender, delayRender, Img, OffthreadVideo, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 
 loadFont({ family: "Inter", url: staticFile("Inter.woff2"), weight: "100 900" });
 
@@ -19,7 +19,7 @@ export type Stile = "sito" | "navy" | "foto";
 
 // Illustrazioni che spiegano il testo (Houts 2006: figure legate al testo aumentano attenzione e ricordo;
 // le decorative no). Approvate da Federico il 23/10/2026.
-export type NomeIcona = "letto" | "cammina" | "posizione" | "casa" | "pillola" | "clessidra" | "pesi" | "telefono";
+export type NomeIcona = "letto" | "cammina" | "posizione" | "casa" | "pillola" | "clessidra" | "pesi" | "telefono" | "referto" | "risonanza";
 export type Illustrazione =
   | { tipo: "pittogramma"; su: number; totale: number }
   | { tipo: "confronto"; a: { icona: NomeIcona; testo: string; esito?: string }; b: { icona: NomeIcona; testo: string; esito: string } }
@@ -39,6 +39,9 @@ const TRATTI: Record<NomeIcona, React.ReactNode> = {
   clessidra: (<><path d="M5 22h14" /><path d="M5 2h14" /><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22" /><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2" /></>),
   pesi: (<><path d="M6 6v12" /><path d="M18 6v12" /><path d="M3 9v6" /><path d="M21 9v6" /><path d="M6 12h12" /></>),
   telefono: (<><rect x="5" y="2" width="14" height="20" rx="2" /><path d="M12 18h.01" /></>),
+  // il foglio del referto e la macchina della risonanza (anello con il lettino), 28/10/2026
+  referto: (<><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M8 13h8" /><path d="M8 17h5" /></>),
+  risonanza: (<><circle cx="12" cy="10.5" r="8.5" /><circle cx="12" cy="10.5" r="3.6" /><path d="M1.5 14.5h21" /><path d="M5 14.5V21" /><path d="M19 14.5V21" /></>),
 };
 
 const Icona: React.FC<{ nome: NomeIcona; lato: number; colore: string }> = ({ nome, lato, colore }) => (
@@ -60,7 +63,10 @@ export type Slide =
   | { tipo: "testo"; titolo: string; corpo: string; referto?: { intestazione: string; riga: string; evidenza: string } }
   | { tipo: "dato"; etichetta: string; numero?: string; frase: string; nota?: string; fonte: string; illustrazione?: Illustrazione }
   | { tipo: "lista"; titolo: string; segno: "si" | "no" | "attenzione"; voci: string[]; nota?: string; icone?: NomeIcona[]; scuro?: boolean }
-  | { tipo: "chiusura"; titolo: string; corpo: string; pulsante: string; studio?: string; invito: string; inBreve?: string };
+  // guida (28/10/2026): i caroselli che portano a una video guida mostrano un solo movimento della guida (video su
+  // Instagram, fotogramma fermo altrove) con il nome della guida come titolo; lo studio scende nella firma.
+  | { tipo: "chiusura"; titolo: string; corpo: string; pulsante: string; studio?: string; invito: string; inBreve?: string;
+      guida?: { nome: string; contenuto: string; video: string; fermo: string } };
 
 // avanzamento: "numeri" (n/8 in basso) o "barra" (barra sottile in alto).
 // controllo: scrive nella console di render misure, colori e posizione di ogni testo
@@ -69,7 +75,25 @@ export type Slide =
 // che l'interfaccia di TikTok lascia libera (testi tra x 90–900 e y 250–1420, come nei Reel).
 // firma: piccola firma (ritratto intero in tessera + nome e titolo) in basso nelle slide interne, al posto di
 // @fisioconfede. Approvata da Federico il 23/10/2026: il titolo "Dr. … osteopata e fisioterapista" pesa più della foto.
-export type CaroselloProps = { stile: Stile; slide: Slide[]; avanzamento?: "numeri" | "barra"; controllo?: boolean; verticale?: boolean; firma?: boolean };
+// animato + indice (28/10/2026): una sola slide a 30 fps, gli elementi entrano col tempo (MP4 per Instagram);
+// senza, ogni fotogramma è una slide già al suo stato finale (JPEG per tutti i social).
+export type CaroselloProps = { stile: Stile; slide: Slide[]; avanzamento?: "numeri" | "barra"; controllo?: boolean; verticale?: boolean; firma?: boolean; animato?: boolean; indice?: number };
+
+// Slide che su Instagram escono animate: barre, pochi omini, chiusura con la guida. Durata in secondi.
+export const durataAnimata = (s: Slide) =>
+  s.tipo === "chiusura" && s.guida ? 9
+  : s.tipo === "dato" && (s.illustrazione?.tipo === "barre" || (s.illustrazione?.tipo === "pittogramma" && s.illustrazione.totale <= 10)) ? 6
+  : 0;
+
+const Tempo = createContext(false);
+// Tempo dell'animazione: nel render statico ogni elemento è già arrivato
+const useTempo = () => {
+  const animato = useContext(Tempo);
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  return { f: animato ? frame : 100000, fps, animato };
+};
+const entra = (f: number, fps: number, da: number) => spring({ frame: f - da * fps, fps, config: { damping: 200 }, durationInFrames: Math.round(0.7 * fps) });
 
 const SCALA_VERTICALE = 0.9;
 
@@ -193,11 +217,13 @@ export const Carosello: React.FC<CaroselloProps> = (props) => {
       continueRender(attesa);
     });
   }, [attesa, frame, props.verticale]);
-  const contenuto = <Slide1 {...props} />;
+  const indice = props.indice ?? Math.min(frame, props.slide.length - 1);
+  const contenuto = <Slide1 {...props} indice={indice} />;
   return (
+    <Tempo.Provider value={!!props.animato}>
     <Avanzamento.Provider value={{ barra: props.avanzamento === "barra", scuro: props.stile === "navy", firma: !!props.firma }}>
       {props.verticale ? (
-        <AbsoluteFill style={{ backgroundColor: sfondoSlide(props, frame) }}>
+        <AbsoluteFill style={{ backgroundColor: sfondoSlide(props, indice) }}>
           <div style={{ position: "absolute", left: 9, top: 210, width: 1080, height: 1350, transform: `scale(${SCALA_VERTICALE})`, transformOrigin: "0 0" }}>
             {contenuto}
           </div>
@@ -206,23 +232,29 @@ export const Carosello: React.FC<CaroselloProps> = (props) => {
         contenuto
       )}
     </Avanzamento.Provider>
+    </Tempo.Provider>
   );
 };
 
 // Colore che riempie lo schermo 9:16 attorno alla slide: lo stesso del suo sfondo.
-const sfondoSlide = ({ stile, slide }: CaroselloProps, frame: number) => {
-  const s = slide[Math.min(frame, slide.length - 1)];
-  const n = frame + 1;
+const sfondoSlide = ({ stile, slide }: CaroselloProps, indice: number) => {
+  const s = slide[indice];
+  const n = indice + 1;
   if (s.tipo === "copertina" && stile === "foto" && s.foto) return NAVY_800;
   if (s.tipo === "lista" && s.scuro) return tema("navy", false).sfondo;
   if (s.tipo === "chiusura") return stile === "navy" ? tema(stile, n % 2 === 0).sfondo : "white";
   return tema(stile, n % 2 === 0).sfondo;
 };
 
-const Slide1: React.FC<CaroselloProps> = ({ stile, slide }) => {
-  const frame = useCurrentFrame();
-  const s = slide[Math.min(frame, slide.length - 1)];
-  const n = frame + 1;
+// Zona del contenuto delle slide nuove (28/10/2026): tra la barra in alto e la firma in basso, centrata in verticale
+const Contenuto: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div style={{ position: "absolute", left: 90, right: 90, top: 100, bottom: 230, display: "flex", flexDirection: "column", justifyContent: "center" }}>{children}</div>
+);
+
+const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, indice }) => {
+  const { f, fps, animato } = useTempo();
+  const s = slide[indice];
+  const n = indice + 1;
   const tot = slide.length;
   let t = tema(stile, n % 2 === 0);
   const base: React.CSSProperties = { backgroundColor: t.sfondo, fontFamily: "Inter", letterSpacing: "-0.01em" };
@@ -281,6 +313,40 @@ const Slide1: React.FC<CaroselloProps> = ({ stile, slide }) => {
     );
   }
 
+  // B · Riaggancio (28/10/2026): la scena della copertina torna in alto, sfumata nella sabbia (filo con la slide 1)
+  const cop = slide[0];
+  if (s.tipo === "testo" && n === 2 && stile === "foto" && cop.tipo === "copertina" && cop.foto) {
+    return (
+      <AbsoluteFill style={{ ...base, backgroundColor: t.sfondo }}>
+        <Img src={staticFile(cop.foto)} style={{ position: "absolute", left: 0, top: 0, width: 1080, height: 400, objectFit: "cover", objectPosition: "50% 22%" }} />
+        <div style={{ position: "absolute", left: 0, right: 0, top: 200, height: 202, background: `linear-gradient(180deg, rgba(247,243,236,0) 0%, ${t.sfondo} 100%)` }} />
+        {cop.fotoIA ? (
+          <div style={{ position: "absolute", left: 90, top: 82, color: "white", fontSize: 28, fontWeight: 500, background: "rgba(11,36,71,0.7)", padding: "4px 14px", borderRadius: 24 }}>Immagine IA</div>
+        ) : null}
+        <Cornice n={n} tot={tot} colore={t.debole} suFoto>
+          <div style={{ position: "absolute", left: 90, right: 90, top: 330 }}>
+            <div style={{ color: t.titolo, fontSize: 74, fontWeight: 800, lineHeight: 1.1 }}>{s.titolo}</div>
+            {s.referto ? (
+              <div style={{ margin: "38px 0", background: "white", border: "2px solid #E2E8F0", borderRadius: 18, padding: "30px 36px", boxShadow: "0 16px 40px rgba(11,36,71,0.12)", transform: "rotate(-1.2deg)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                  <Icona nome="referto" lato={44} colore={SLATE_500} />
+                  <div style={{ color: SLATE_500, fontSize: 28, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>{s.referto.intestazione}</div>
+                </div>
+                <div style={{ height: 12, width: "70%", background: "#E2E8F0", borderRadius: 6, marginTop: 20 }} />
+                <div style={{ color: NAVY_800, fontSize: 41, fontWeight: 700, lineHeight: 1.3, marginTop: 18 }}>
+                  <ConEvidenza testo={s.referto.riga} evidenza={s.referto.evidenza} colore={NAVY_800} sfondo={AMBER_100} />
+                </div>
+              </div>
+            ) : (
+              <div style={{ width: 120, height: 10, background: AMBER_400, borderRadius: 5, margin: "40px 0" }} />
+            )}
+            <div style={{ color: t.corpo, fontSize: 42, fontWeight: 500, lineHeight: 1.38 }}>{s.corpo}</div>
+          </div>
+        </Cornice>
+      </AbsoluteFill>
+    );
+  }
+
   if (s.tipo === "testo") {
     return (
       <AbsoluteFill style={base}>
@@ -312,10 +378,14 @@ const Slide1: React.FC<CaroselloProps> = ({ stile, slide }) => {
     const conf = s.illustrazione?.tipo === "confronto" ? s.illustrazione : null;
     const tempi = s.illustrazione?.tipo === "tempi" ? s.illustrazione : null;
     const barre = s.illustrazione?.tipo === "barre" ? s.illustrazione : null;
+    // C · Prova (28/10/2026): barre e pochi omini grandi, che su Instagram entrano col tempo
+    const grande = !!barre || (!!pitto && pitto.totale <= 10);
+    const Zona: React.FC<{ children: React.ReactNode }> = grande ? Contenuto
+      : ({ children }) => <div style={{ position: "absolute", left: 90, right: 90, top: 0, bottom: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>{children}</div>;
     return (
       <AbsoluteFill style={base}>
         <Cornice n={n} tot={tot} colore={t.debole}>
-          <div style={{ position: "absolute", left: 90, right: 90, top: 0, bottom: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <Zona>
             <div style={{ color: t.accento, fontSize: 30, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 28 }}>{s.etichetta}</div>
             {/* Numero lungo ("6 settimane"): a 200 px va su due righe e esce dal margine (mal di schiena 24/10) */}
             {s.numero ? (
@@ -324,10 +394,17 @@ const Slide1: React.FC<CaroselloProps> = ({ stile, slide }) => {
             {pitto ? (
               pitto.totale <= 10 ? (
                 // "2 su 3": tre omini grandi, lo stesso denominatore del numero (icon array, Garcia-Retamero e Galesic)
-                <div style={{ display: "flex", gap: 30, marginBottom: 36 }}>
-                  {Array.from({ length: pitto.totale }, (_, i) => (
-                    <Omino key={i} lato={170} colore={i < pitto.su ? t.accento : "#C5CEDA"} />
-                  ))}
+                <div style={{ display: "flex", gap: 22, marginBottom: 44 }}>
+                  {Array.from({ length: pitto.totale }, (_, i) => {
+                    const lato = pitto.totale <= 3 ? 240 : pitto.totale <= 4 ? 200 : 900 / pitto.totale - 22;
+                    const p = entra(f, fps, 0.6 + i * 0.6);
+                    return (
+                      <div key={i} style={{ position: "relative", width: lato, height: lato }}>
+                        <div style={{ position: "absolute", inset: 0 }}><Omino lato={lato} colore="#C5CEDA" /></div>
+                        {i < pitto.su ? <div style={{ position: "absolute", inset: 0, opacity: p, transform: `scale(${0.85 + 0.15 * p})` }}><Omino lato={lato} colore={t.accento} /></div> : null}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(20, 45px)", rowGap: 0, marginBottom: 30 }}>
@@ -337,7 +414,7 @@ const Slide1: React.FC<CaroselloProps> = ({ stile, slide }) => {
               </div>
               )
             ) : null}
-            <div style={{ color: t.titolo, fontSize: s.numero ? 56 : 66, fontWeight: 750, lineHeight: 1.18 }}>{s.frase}</div>
+            <div style={{ color: t.titolo, fontSize: s.numero ? 56 : barre ? 64 : 66, fontWeight: 750, lineHeight: barre ? 1.16 : 1.18 }}>{s.frase}</div>
             {conf ? (
               <div style={{ display: "flex", alignItems: "stretch", gap: 24, marginTop: 44 }}>
                 <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 20, background: t.card, borderRadius: 14, padding: "22px 26px" }}>
@@ -357,18 +434,23 @@ const Slide1: React.FC<CaroselloProps> = ({ stile, slide }) => {
               </div>
             ) : null}
             {barre ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 30, marginTop: 48 }}>
-                {barre.righe.map((b, i) => (
-                  <div key={i}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
-                      <div style={{ color: SLATE_600, fontSize: 32, fontWeight: 700 }}>{b.etichetta}</div>
-                      <div style={{ color: NAVY_800, fontSize: 40, fontWeight: 800 }}>{b.testo}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: barre.righe.length > 3 ? 26 : 44, marginTop: 56 }}>
+                {barre.righe.map((b, i) => {
+                  const p = entra(f, fps, 0.5 + i * 0.9);
+                  const ultima = i === barre.righe.length - 1;
+                  const alta = barre.righe.length > 3 ? 52 : 88;
+                  return (
+                    <div key={i}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
+                        <div style={{ color: SLATE_600, fontSize: 36, fontWeight: 700 }}>{b.etichetta}</div>
+                        <div style={{ color: ultima ? BRAND_700 : NAVY_800, fontSize: barre.righe.length > 3 ? 44 : 60, fontWeight: 900, letterSpacing: "-0.03em", opacity: p }}>{b.testo}</div>
+                      </div>
+                      <div style={{ height: alta, borderRadius: 16, background: "#E2E8F0", overflow: "hidden" }}>
+                        <div style={{ width: `${b.valore * p}%`, height: "100%", borderRadius: 16, background: ultima ? BRAND_700 : SLATE_500 }} />
+                      </div>
                     </div>
-                    <div style={{ height: 44, borderRadius: 10, background: "#E2E8F0", overflow: "hidden" }}>
-                      <div style={{ width: `${b.valore}%`, height: "100%", borderRadius: 10, background: i === barre.righe.length - 1 ? BRAND_700 : SLATE_500 }} />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : null}
             {tempi ? (
@@ -399,8 +481,8 @@ const Slide1: React.FC<CaroselloProps> = ({ stile, slide }) => {
                 {s.nota}
               </div>
             ) : null}
-            <div style={{ color: t.debole, fontSize: 28, fontWeight: 500, lineHeight: 1.4, marginTop: 40 }}>Fonte: {s.fonte}</div>
-          </div>
+            <div style={{ color: t.debole, fontSize: 28, fontWeight: 500, lineHeight: 1.4, marginTop: grande ? 36 : 40 }}>Fonte: {s.fonte}</div>
+          </Zona>
         </Cornice>
       </AbsoluteFill>
     );
@@ -415,9 +497,22 @@ const Slide1: React.FC<CaroselloProps> = ({ stile, slide }) => {
     return (
       <AbsoluteFill style={base}>
         <Cornice n={n} tot={tot} colore={s.scuro ? "#CBD5E1" : t.debole} scuro={s.scuro}>
-          <div style={{ position: "absolute", left: 90, right: 90, top: 0, bottom: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-            <div style={{ color: t.titolo, fontSize: 70, fontWeight: 800, lineHeight: 1.1, marginBottom: lunga ? 40 : 56 }}>{s.titolo}</div>
-            {s.voci.map((v, i) => (
+          <Contenuto>
+            <div style={{ color: t.titolo, fontSize: 70, fontWeight: 800, lineHeight: 1.1, marginBottom: lunga ? 40 : 44 }}>{s.titolo}</div>
+            {s.voci.map((v, i) => s.icone && !lunga ? (
+              // D · Pratica (28/10/2026): una scheda per voce, icona grande con il segno ✓/✕
+              <div key={v} style={{ display: "flex", alignItems: "center", gap: 30, background: t.card, borderRadius: 20, padding: "22px 28px", marginBottom: 22 }}>
+                <div style={{ position: "relative", flex: "0 0 auto", width: 112, height: 112, borderRadius: 24, background: s.segno === "no" ? "#E9ECF1" : "#E3EEFB", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Icona nome={s.icone[i]} lato={68} colore={s.segno === "no" ? SLATE_600 : BRAND_700} />
+                  <div style={{ position: "absolute", right: -10, bottom: -10, width: 48, height: 48, borderRadius: 24, background: s.segno === "no" ? SLATE_500 : BRAND_700, border: `4px solid ${t.card}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round">
+                      {s.segno === "no" ? (<><path d="M6 6l12 12" /><path d="M18 6 6 18" /></>) : <path d="M4 12.5l5 5L20 6.5" />}
+                    </svg>
+                  </div>
+                </div>
+                <div style={{ color: t.titolo, fontSize: 40, fontWeight: 600, lineHeight: 1.28 }}>{v}</div>
+              </div>
+            ) : (
               <div key={v} style={{ display: "flex", gap: 28, alignItems: s.icone ? "center" : "flex-start", marginBottom: lunga ? 24 : 34 }}>
                 {s.icone ? (
                   // Icona che illustra la voce + piccolo segno (✓/✕) perché resti chiaro se è da fare o da evitare
@@ -444,8 +539,50 @@ const Slide1: React.FC<CaroselloProps> = ({ stile, slide }) => {
                 {s.nota.replace(/\s*🔖\s*$/u, "")}
               </div>
             ) : null}
-          </div>
+          </Contenuto>
         </Cornice>
+      </AbsoluteFill>
+    );
+  }
+
+  // F · Chiusura verso una guida (28/10/2026, Federico): la guida è il prodotto, non la didascalia del video;
+  // una sola azione (il pulsante), lo studio scende nella firma, niente ritratto (Federico è già nel video)
+  if (s.guida) {
+    const g = s.guida;
+    const scala = animato ? 1 + 0.04 * Math.min(1, f / (9 * fps)) : 1;
+    return (
+      <AbsoluteFill style={{ ...base, backgroundColor: "white" }}>
+        <BarraSeServe n={n} tot={tot} />
+        <div style={{ position: "absolute", left: 90, right: 90, top: 96 }}>
+          {s.inBreve ? (
+            <div style={{ background: NAVY_800, borderRadius: 16, padding: "22px 30px" }}>
+              <div style={{ color: AMBER_400, fontSize: 28, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase" }}>In breve</div>
+              <div style={{ color: "white", fontSize: 36, fontWeight: 700, lineHeight: 1.28, marginTop: 6 }}>{s.inBreve}</div>
+            </div>
+          ) : null}
+          <div style={{ color: NAVY_800, fontSize: 56, fontWeight: 800, lineHeight: 1.08, marginTop: 30 }}>{s.titolo}</div>
+          <div style={{ position: "relative", marginTop: 24, width: 900, height: 430, borderRadius: 22, overflow: "hidden", background: NAVY_800 }}>
+            <div style={{ position: "absolute", inset: 0, transform: `scale(${scala})` }}>
+              {animato ? (
+                <OffthreadVideo src={staticFile(g.video)} muted style={{ width: 900, height: 430, objectFit: "cover" }} />
+              ) : (
+                <Img src={staticFile(g.fermo)} style={{ width: 900, height: 430, objectFit: "cover" }} />
+              )}
+            </div>
+          </div>
+          {/* nome lungo ("… Sblocco Schiena di Emergenza"): più piccolo per restare su una riga */}
+          <div style={{ color: NAVY_800, fontSize: g.nome.length > 32 ? 37 : 44, fontWeight: 800, lineHeight: 1.1, marginTop: 24, letterSpacing: g.nome.length > 32 ? "-0.02em" : undefined }}>{g.nome}</div>
+          <div style={{ color: SLATE_600, fontSize: 32, fontWeight: 500, lineHeight: 1.3, marginTop: 8 }}>{g.contenuto}</div>
+          <div style={{ display: "inline-block", marginTop: 22, background: BRAND_700, color: "white", fontSize: 38, fontWeight: 700, padding: "18px 34px", borderRadius: 14 }}>{s.pulsante}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 22, width: "fit-content", background: SAND_50, color: NAVY_800, fontSize: 32, fontWeight: 700, padding: "14px 24px", borderRadius: 14 }}>
+            <svg width={34} height={34} viewBox="0 0 24 24" fill="none" stroke={BRAND_700} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z" /><path d="m21.854 2.147-10.94 10.939" /></svg>
+            {s.invito.replace(/^📩\s*/u, "")}
+          </div>
+        </div>
+        <div style={{ position: "absolute", left: 90, right: 90, bottom: 90, borderTop: "2px solid #E2E8F0", paddingTop: 22 }}>
+          <div style={{ color: NAVY_800, fontSize: 30, fontWeight: 800, lineHeight: 1.25 }}>Dr. Federico Piazza · Osteopata e fisioterapista</div>
+          <div style={{ color: SLATE_500, fontSize: 28, fontWeight: 600, lineHeight: 1.3 }}>{s.studio ? `${s.studio} · ` : ""}@fisioconfede</div>
+        </div>
       </AbsoluteFill>
     );
   }
