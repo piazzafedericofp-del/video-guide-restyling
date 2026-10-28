@@ -41,6 +41,7 @@ jobs:
             social/lavori
             social/ritratto.png
             social/musica.json
+            social/guide
 
       - name: Codice
         uses: actions/checkout@v4
