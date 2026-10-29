@@ -42,6 +42,7 @@ jobs:
             social/clip-qualita.json
             social/posa
             social/ritratto.png
+            social/ritratto-scontornato.png
             social/musica.json
             social/guide
 
@@ -192,6 +193,7 @@ jobs:
           D="../media/social/lavori/$ID/dati.json"
           cp "$D" public/dati.json
           cp ../media/social/ritratto.png public/ritratto.png
+          cp ../media/social/ritratto-scontornato.png public/ritratto-scontornato.png  # chiusura verso lo studio (29/10/2026)
           # Chiusura verso una video guida (28/10/2026): un movimento della guida, video e fotogramma fermo dall'archivio privato
           for G in $(jq -r '[.props.slide[]? | .guida? // empty | .video, .fermo] | .[]' "$D"); do cp "../media/social/guide/$G" "public/$G"; done
           mkdir -p out/consegna

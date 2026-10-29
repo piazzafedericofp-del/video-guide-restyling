@@ -65,7 +65,9 @@ export type Slide =
   | { tipo: "lista"; titolo: string; segno: "si" | "no" | "attenzione"; voci: string[]; nota?: string; icone?: NomeIcona[]; scuro?: boolean }
   // guida (28/10/2026): i caroselli che portano a una video guida mostrano un solo movimento della guida (video su
   // Instagram, fotogramma fermo altrove) con il nome della guida come titolo; lo studio scende nella firma.
-  | { tipo: "chiusura"; titolo: string; corpo: string; pulsante: string; studio?: string; invito: string; inBreve?: string;
+  // evidenza (29/10/2026): le parole del problema nel titolo, su fondo ambra come in copertina. Dal 29/10 lo stile
+  // foto non mostra più inBreve (Federico: la risposta è già nella slide 2), resta solo per gli stili di prova.
+  | { tipo: "chiusura"; titolo: string; corpo: string; pulsante: string; studio?: string; invito: string; inBreve?: string; evidenza?: string;
       guida?: { nome: string; contenuto: string; video: string; fermo: string } };
 
 // avanzamento: "numeri" (n/8 in basso) o "barra" (barra sottile in alto).
@@ -207,6 +209,15 @@ const BarraSeServe: React.FC<{ n: number; tot: number }> = ({ n, tot }) => {
   return av.barra ? <Barra n={n} tot={tot} scuro={av.scuro} /> : null;
 };
 
+// Chiusura (29/10/2026): freccia disegnata nel pulsante, titolo con le parole del problema su fondo ambra
+// e titolo più piccolo se una riga è lunga (le righe si spezzano con "\n" nei dati)
+const Freccia: React.FC<{ lato: number }> = ({ lato }) => (
+  <svg width={lato} height={lato} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+);
+const TitoloEvidenziato: React.FC<{ testo: string; evidenza?: string }> = ({ testo, evidenza }) =>
+  evidenza ? <ConEvidenza testo={testo} evidenza={evidenza} colore={NAVY_800} sfondo={AMBER_400} /> : <>{testo}</>;
+const rigaPiuLunga = (testo: string) => Math.max(...testo.split("\n").map((r) => r.length));
+
 const SEGNI = { si: "✓", no: "✕", attenzione: "!" } as const;
 
 export const Carosello: React.FC<CaroselloProps> = (props) => {
@@ -324,8 +335,9 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
       <AbsoluteFill style={{ ...base, backgroundColor: t.sfondo }}>
         <Img src={staticFile(cop.foto)} style={{ position: "absolute", left: 0, top: 0, width: 1080, height: 400, objectFit: "cover", objectPosition: "50% 22%" }} />
         <div style={{ position: "absolute", left: 0, right: 0, top: 200, height: 202, background: `linear-gradient(180deg, rgba(247,243,236,0) 0%, ${t.sfondo} 100%)` }} />
+        {/* fondo più pieno che in copertina: sulla scena schiarita il 70% dava 4,5:1 (mal di schiena f9d45c8e, 29/10/2026) */}
         {cop.fotoIA ? (
-          <div style={{ position: "absolute", left: 90, top: 82, color: "white", fontSize: 28, fontWeight: 500, background: "rgba(11,36,71,0.7)", padding: "4px 14px", borderRadius: 24 }}>Immagine IA</div>
+          <div style={{ position: "absolute", left: 90, top: 82, color: "white", fontSize: 28, fontWeight: 500, background: "rgba(11,36,71,0.85)", padding: "4px 14px", borderRadius: 24 }}>Immagine IA</div>
         ) : null}
         <Cornice n={n} tot={tot} colore={t.debole} suFoto>
           <div style={{ position: "absolute", left: 90, right: 90, top: 330 }}>
@@ -550,23 +562,20 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
   }
 
   // F · Chiusura verso una guida (28/10/2026, Federico): la guida è il prodotto, non la didascalia del video;
-  // una sola azione (il pulsante), lo studio scende nella firma, niente ritratto (Federico è già nel video)
+  // una sola azione (il pulsante), lo studio scende nella firma, niente ritratto (Federico è già nel video).
+  // Dal 29/10/2026 senza "In breve": titolo più grande con il problema evidenziato e video più alto
   if (s.guida) {
     const g = s.guida;
     const scala = animato ? 1 + 0.04 * Math.min(1, f / (9 * fps)) : 1;
     return (
       <AbsoluteFill style={{ ...base, backgroundColor: "white" }}>
         <BarraSeServe n={n} tot={tot} />
-        {/* colonna tra la barra e la firma: il video prende lo spazio che resta (In breve lungo → video più basso) */}
+        {/* colonna tra la barra e la firma: il video prende lo spazio che resta (titolo lungo → video più basso) */}
         <div style={{ position: "absolute", left: 90, right: 90, top: 96, bottom: 216, display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-          {s.inBreve ? (
-            <div style={{ flex: "none", alignSelf: "stretch", background: NAVY_800, borderRadius: 16, padding: "22px 30px" }}>
-              <div style={{ color: AMBER_400, fontSize: 28, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase" }}>In breve</div>
-              <div style={{ color: "white", fontSize: 36, fontWeight: 700, lineHeight: 1.28, marginTop: 6 }}>{s.inBreve}</div>
-            </div>
-          ) : null}
-          <div style={{ flex: "none", color: NAVY_800, fontSize: 56, fontWeight: 800, lineHeight: 1.08, marginTop: 30 }}>{s.titolo}</div>
-          <div style={{ position: "relative", flex: "1 1 0", minHeight: 240, maxHeight: 430, marginTop: 24, width: 900, borderRadius: 22, overflow: "hidden", background: NAVY_800 }}>
+          <div style={{ flex: "none", color: NAVY_800, fontSize: rigaPiuLunga(s.titolo) > 26 ? 60 : 72, fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.01em", marginTop: 22, whiteSpace: "pre-line" }}>
+            <TitoloEvidenziato testo={s.titolo} evidenza={s.evidenza} />
+          </div>
+          <div style={{ position: "relative", flex: "1 1 0", minHeight: 240, maxHeight: 620, marginTop: 30, width: 900, borderRadius: 22, overflow: "hidden", background: NAVY_800 }}>
             <div style={{ position: "absolute", inset: 0, transform: `scale(${scala})` }}>
               {animato ? (
                 <OffthreadVideo src={staticFile(g.video)} muted style={{ width: 900, height: "100%", objectFit: "cover" }} />
@@ -578,7 +587,10 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
           {/* nome lungo ("… Sblocco Schiena di Emergenza"): più piccolo per restare su una riga */}
           <div style={{ flex: "none", color: NAVY_800, fontSize: g.nome.length > 32 ? 37 : 44, fontWeight: 800, lineHeight: 1.1, marginTop: 24, letterSpacing: g.nome.length > 32 ? "-0.02em" : undefined }}>{g.nome}</div>
           <div style={{ flex: "none", color: SLATE_600, fontSize: 32, fontWeight: 500, lineHeight: 1.3, marginTop: 8 }}>{g.contenuto}</div>
-          <div style={{ flex: "none", display: "inline-block", marginTop: 22, background: BRAND_700, color: "white", fontSize: 38, fontWeight: 700, padding: "18px 34px", borderRadius: 14 }}>{s.pulsante}</div>
+          <div style={{ flex: "none", display: "inline-flex", alignItems: "center", gap: 14, marginTop: 30, background: BRAND_700, color: "white", fontSize: 40, fontWeight: 800, padding: "20px 30px 20px 36px", borderRadius: 14 }}>
+            {s.pulsante}
+            <Freccia lato={40} />
+          </div>
           <div style={{ flex: "none", display: "flex", alignItems: "center", gap: 14, marginTop: 22, width: "fit-content", background: SAND_50, color: NAVY_800, fontSize: 32, fontWeight: 700, padding: "14px 24px", borderRadius: 14 }}>
             <svg width={34} height={34} viewBox="0 0 24 24" fill="none" stroke={BRAND_700} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z" /><path d="m21.854 2.147-10.94 10.939" /></svg>
             {s.invito.replace(/^📩\s*/u, "")}
@@ -592,8 +604,42 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
     );
   }
 
-  // chiusura: testo a tutta larghezza in alto, firma con ritratto in basso (stile foto)
-  const conRitratto = stile === "foto";
+  // F · Chiusura verso lo studio (29/10/2026, Federico): niente "In breve" (la risposta è già nella slide 2), titolo grande
+  // col problema evidenziato come in copertina, ritratto scontornato grande su un cerchio sabbia, fondo chiaro
+  if (stile === "foto") {
+    return (
+      <AbsoluteFill style={{ ...base, backgroundColor: "white" }}>
+        {/* cerchio e ritratto chiusi nella slide: nel 9:16 il cerchio usciva dai bordi */}
+        <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+          <div style={{ position: "absolute", right: -70, bottom: -150, width: 580, height: 580, borderRadius: "50%", background: SAND_50 }} />
+          <Img data-ostacolo src={staticFile("ritratto-scontornato.png")} style={{ position: "absolute", right: 14, bottom: 0, height: 556, width: 556 * (1064 / 1478) }} />
+        </div>
+        <BarraSeServe n={n} tot={tot} />
+        <div style={{ position: "absolute", left: 90, right: 90, top: 150 }}>
+          <div style={{ color: NAVY_800, fontSize: rigaPiuLunga(s.titolo) > 20 ? 84 : 100, fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.01em", whiteSpace: "pre-line" }}>
+            <TitoloEvidenziato testo={s.titolo} evidenza={s.evidenza} />
+          </div>
+          {s.corpo ? <div style={{ color: SLATE_600, fontSize: 44, fontWeight: 500, lineHeight: 1.35, marginTop: 26 }}>{s.corpo}</div> : null}
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 16, marginTop: 46, background: BRAND_700, color: "white", fontSize: 42, fontWeight: 800, padding: "22px 34px 22px 40px", borderRadius: 16, whiteSpace: "nowrap" }}>
+            {s.pulsante}
+            <Freccia lato={44} />
+          </div>
+          {s.studio ? <div style={{ color: SLATE_600, fontSize: 32, fontWeight: 500, lineHeight: 1.4, marginTop: 22 }}>{s.studio}</div> : null}
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 14, marginTop: 30, background: SAND_50, color: NAVY_800, fontSize: 32, fontWeight: 700, padding: "16px 24px", borderRadius: 14 }}>
+            <svg width={34} height={34} viewBox="0 0 24 24" fill="none" stroke={BRAND_700} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z" /><path d="m21.854 2.147-10.94 10.939" /></svg>
+            {s.invito.replace(/^📩\s*/u, "")}
+          </div>
+        </div>
+        <div style={{ position: "absolute", left: 90, bottom: 100 }}>
+          <div style={{ color: NAVY_800, fontSize: 46, fontWeight: 800, lineHeight: 1.15 }}>Dr. Federico Piazza</div>
+          <div style={{ color: BRAND_700, fontSize: 32, fontWeight: 700, marginTop: 8 }}>Osteopata e fisioterapista</div>
+          <div style={{ color: SLATE_600, fontSize: 30, fontWeight: 600, marginTop: 10 }}>@fisioconfede</div>
+        </div>
+      </AbsoluteFill>
+    );
+  }
+
+  // chiusura negli stili di prova "sito" e "navy" (17/10/2026): testo a tutta larghezza in alto, firma in basso
   const scuro = stile === "navy";
   return (
     <AbsoluteFill style={{ ...base, backgroundColor: scuro ? t.sfondo : "white" }}>
@@ -616,23 +662,9 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
           {s.invito.replace(/^📩\s*/u, "")}
         </div>
       </div>
-      {conRitratto ? (
-        <>
-          <BarraSeServe n={n} tot={tot} />
-          {s.inBreve ? null : <div style={{ position: "absolute", left: 90, right: 90, top: 905, height: 3, background: SAND_50 }} />}
-          <Img data-ostacolo src={staticFile("ritratto.png")} style={{ position: "absolute", left: 70, bottom: 0, height: 420, width: 420 * (1064 / 1478) }} />
-          <div style={{ position: "absolute", left: 420, right: 90, bottom: 110 }}>
-            <div style={{ color: NAVY_800, fontSize: 44, fontWeight: 800 }}>Dr. Federico Piazza</div>
-            <div style={{ color: BRAND_700, fontSize: 32, fontWeight: 700, marginTop: 8 }}>Osteopata e fisioterapista</div>
-            <div style={{ color: SLATE_500, fontSize: 30, fontWeight: 500, marginTop: 14 }}>Firenze · Figline Valdarno</div>
-            <div style={{ color: SLATE_500, fontSize: 30, fontWeight: 600, marginTop: 6 }}>@fisioconfede</div>
-          </div>
-        </>
-      ) : (
-        <Cornice n={n} tot={tot} colore={t.debole}>
-          <div style={{ position: "absolute", left: 90, bottom: 130, color: t.debole, fontSize: 30, fontWeight: 500 }}>Dr. Federico Piazza · Osteopata e fisioterapista</div>
-        </Cornice>
-      )}
+      <Cornice n={n} tot={tot} colore={t.debole}>
+        <div style={{ position: "absolute", left: 90, bottom: 130, color: t.debole, fontSize: 30, fontWeight: 500 }}>Dr. Federico Piazza · Osteopata e fisioterapista</div>
+      </Cornice>
     </AbsoluteFill>
   );
 };
