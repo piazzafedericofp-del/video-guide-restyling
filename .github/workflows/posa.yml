@@ -1,0 +1,91 @@
+# Posa del corpo delle clip dei Reel (audit del 29/10/2026, skill reel-social): MediaPipe su ogni clip della release
+# "clip-social" che non ce l'ha ancora, salvata in media/social/posa/<clip>.json. La routine la usa per agganciare le
+# grafiche al corpo, controlla-reel.py per vedere gesto fuori zona e pulsante sulle mani. Nei log solo conteggi.
+name: Posa delle clip
+
+# Si lancia a mano o da una sessione dopo aver caricato clip nuove; il render (social.yml) la calcola da solo se manca.
+on:
+  workflow_dispatch:
+    inputs:
+      clip:
+        description: "id delle clip separati da spazi (vuoto = tutte quelle senza posa)"
+        required: false
+      rifai:
+        description: "ricalcola anche quelle che ce l'hanno già"
+        type: boolean
+        default: false
+
+concurrency:
+  group: posa
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  GH_TOKEN: ${{ secrets.MEDIA_TOKEN }}
+  MEDIA_REPO: piazzafedericofp-del/video-guide-media
+  MODELLO_URL: https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task
+
+jobs:
+  posa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Progetto privato (solo le pose)
+        uses: actions/checkout@v4
+        with:
+          repository: piazzafedericofp-del/video-guide-media
+          token: ${{ secrets.MEDIA_TOKEN }}
+          path: media
+          sparse-checkout: social/posa
+
+      - name: Codice
+        uses: actions/checkout@v4
+        with:
+          path: codice
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Strumenti
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+          pip install -q mediapipe numpy
+          curl -sSfL "$MODELLO_URL" -o /tmp/posa.task
+
+      - name: Pose
+        env:
+          SOLO: ${{ github.event.inputs.clip }}
+          RIFAI: ${{ github.event.inputs.rifai }}
+        run: |
+          set -uo pipefail
+          mkdir -p media/social/posa girato
+          cd media
+          git config user.name "posa-social"; git config user.email "render@users.noreply.github.com"
+          salva() {
+            git add social/posa
+            git diff --cached --quiet && return 0
+            git commit -q -m "social: posa di $1 clip"
+            for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
+          }
+          cd ..
+          FATTE=0; ERRORI=0; NUOVE=0
+          for NOME in $(gh release view clip-social -R "$MEDIA_REPO" --json assets -q '.assets[].name' | sort -u); do
+            ID="${NOME%.*}"
+            [ -z "$SOLO" ] || [[ " $SOLO " == *" $ID "* ]] || continue
+            OUT="media/social/posa/$ID.json"
+            [ "$RIFAI" != "true" ] && [ -f "$OUT" ] && continue
+            gh release download clip-social -R "$MEDIA_REPO" -p "$NOME" -D girato --clobber < /dev/null || { ERRORI=$((ERRORI+1)); continue; }
+            if python3 codice/scripts/social/posa.py "girato/$NOME" /tmp/posa.task "$OUT" > /dev/null 2>&1; then
+              FATTE=$((FATTE+1)); NUOVE=$((NUOVE+1))
+            else
+              ERRORI=$((ERRORI+1))
+            fi
+            rm -f "girato/$NOME"
+            if [ "$NUOVE" -ge 20 ]; then (cd media && salva "$NUOVE"); NUOVE=0; fi
+          done
+          (cd media && salva "$NUOVE")
+          echo "Pose calcolate: $FATTE, non riuscite: $ERRORI"
+          [ "$ERRORI" -eq 0 ]

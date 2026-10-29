@@ -1,6 +1,6 @@
 """Controlli di un Reel "momenti" prima del render (audit del 29/10/2026, skill reel-social, "Prima del render").
 
-Uso: python3 scripts/social/controlla-reel.py <dati.json> [--clip <sorgente>] [--qualita <clip-qualita.json>]
+Uso: python3 scripts/social/controlla-reel.py <dati.json> [--clip <sorgente>] [--qualita <clip-qualita.json>] [--posa <posa.json>]
 Righe "✗" = da correggere (il render si ferma e la routine corregge una volta), "!" = avviso. Esce con 1 se c'è una ✗.
 1. Bordi neri: in ogni piano (allo zoom più basso, camera a mano compresa) e nella copertina la clip copre lo schermo
    sui 4 lati. Prima si guardava solo il bordo alto: ginocchio, collo, gobba e TRX avevano bande da 10 a 84 px.
@@ -12,8 +12,11 @@ Righe "✗" = da correggere (il render si ferma e la routine corregge una volta)
 4. Tratti da non usare, da clip-qualita.json: `evita` [[da, a]] e `solo` [[da, a]] in secondi della clip,
    `evita_zone` [{da, a, x0, y0, x1, y1, zoom_oltre?}] = riquadro della clip (pixel 1080×1920) rovinato dalla pulizia
    in quei secondi, `tratti_deboli` [{da, a, zoom_max, zoom_max_gancio}] = secondi della clip più morbidi della media.
+5. Con --posa (posa.py), avvisi: viso sotto un testo, gesto fuori dalla zona visibile o sotto il riquadro del passo,
+   pulsante dell'invito sopra mani o piedi (audit del 29/10: gomito, stacco su una gamba, anca, lento avanti).
 """
 import json
+import math
 import subprocess
 import sys
 from pathlib import Path
@@ -209,6 +212,89 @@ if isinstance(c, dict):
     for a0, a1 in Q.get("evita", []):
         if a0 <= c["clip"] <= a1:
             errori.append(f"copertina: fotogramma a {c['clip']} s della clip, nel tratto da evitare {a0}-{a1} s")
+
+# ─── 5. Dalla posa (posa.py): viso sotto i testi, gesto fuori dalla zona visibile, pulsante sopra mani o piedi ───
+# Avvisi, non errori: la posa è una stima. Nell'audit del 29/10 il pulsante copriva le mani nell'80-93% del finale in 4 Reel
+fp = opzione("--posa")
+if fp and Path(fp).exists():
+    posa = json.load(open(fp))
+    idx = {n: i for i, n in enumerate(posa["punti"])}
+
+    def punto(nome, tc):
+        i = round(tc * posa["fps"])
+        if not 0 <= i < len(posa["xy"]) or not posa["xy"][i]:
+            return None
+        x, y, v = posa["xy"][i][idx[nome]]
+        return (x, y) if v >= 0.5 else None
+
+    def schermo(t, P):
+        i = max(j for j, q in enumerate(piani) if q["da"] <= t + 1e-6) if any(q["da"] <= t + 1e-6 for q in piani) else 0
+        q = piani[i]
+        z = (q["z0"] + (q["z1"] - q["z0"]) * min(1, max(0, (t - q["da"]) / max(0.01, fine[i] - q["da"])))) * k
+        return 540 + (P[0] - q["cx"]) * z, q["ay"] + (P[1] - q["cy"]) * z, q["clip"] + t - q["da"]
+
+    def campioni(da, a):
+        return [da + j * 0.1 for j in range(max(1, int((a - da) / 0.1)))]
+
+    righe = lambda testo, al_rigo: sum(max(1, math.ceil(len(r) / al_rigo)) for r in str(testo).split("\n"))
+    riquadri = [("gancio", 0, g["a"], (180, 270, 900, 270 + 95 * len(g["righe"])))] if not g.get("parlato") else []
+    riquadri.append(("perché", p["perche"]["da"], p["perche"]["a"], (180, 286, 900, 322 + 70 * righe(p["perche"]["testo"], 24))))
+    for i, v in enumerate(voci):
+        a = voci[i + 1]["da"] if i + 1 < len(voci) else p["passi"]["a"]
+        riquadri.append((f"passo {i + 1}", v["da"], a, (180, 272, 900, 346 + 54 * righe(v["testo"], 22))))
+    riquadri.append(("dosaggio", d["da"], d["a"], (180, 262 if not d.get("anello") else 286, 900, 480 if not d.get("anello") else 590)))
+    yi = p["invito"].get("y", 1175)
+    pulsante = (195, yi, 885, yi + 170)
+    riquadri.append(("invito", p["invito"]["da"], durata, pulsante))
+    for nome, da, a, (x0, y0, x1, y1) in riquadri:
+        coperto = []
+        for t in campioni(da, a):
+            pt = [punto(n, schermo(t, (0, 0))[2]) for n in ("occhio_s", "occhio_d", "naso", "bocca_s", "bocca_d", "orecchio_s", "orecchio_d")]
+            pt = [schermo(t, q)[:2] for q in pt if q]
+            if len(pt) < 3:
+                continue
+            xs, ys = [q[0] for q in pt], [q[1] for q in pt]
+            h = max(20, (max(ys) - min(ys)))
+            vx0, vy0, vx1, vy1 = min(xs) - 0.4 * h, min(ys) - 1.2 * h, max(xs) + 0.4 * h, max(ys) + 0.8 * h
+            inter = max(0, min(vx1, x1) - max(vx0, x0)) * max(0, min(vy1, y1) - max(vy0, y0))
+            if inter > 0.25 * (vx1 - vx0) * (vy1 - vy0):
+                coperto.append(t)
+        if len(coperto) >= 2:
+            avvisi.append(f"viso sotto {nome} a {coperto[0]:.1f}-{coperto[-1]:.1f} s: il viso non va mai coperto (zoom o ay del piano)")
+
+    ESTREMI = ("polso_s", "polso_d", "indice_s", "indice_d", "gomito_s", "gomito_d", "ginocchio_s", "ginocchio_d",
+               "caviglia_s", "caviglia_d", "tallone_s", "tallone_d", "punta_s", "punta_d")
+    # Il gesto di ogni passo = i 2 punti che si muovono di più; "fuori" = oltre il bordo, sotto la barra in alto (250),
+    # sotto la didascalia in basso (1700) o sotto il riquadro del passo
+    for nome, da, a, box in [r for r in riquadri if r[0].startswith("passo")]:
+        tt = campioni(da, a)
+        gesto = []
+        for n in ESTREMI:
+            vis = [(t, q) for t in tt if (q := punto(n, schermo(t, (0, 0))[2]))]
+            if len(vis) >= max(3, len(tt) // 2):
+                escursione = max(max(q[0] for _, q in vis) - min(q[0] for _, q in vis), max(q[1] for _, q in vis) - min(q[1] for _, q in vis))
+                gesto.append((escursione, n, vis))
+        for escursione, n, vis in sorted(gesto, reverse=True)[:2]:
+            if escursione < 60:
+                continue
+            fuori = [t for t, q in vis if (s := schermo(t, q)) and (s[0] < 40 or s[0] > 1040 or s[1] < 250 or s[1] > 1700
+                                                                    or (box[0] < s[0] < box[2] and box[1] < s[1] < box[3]))]
+            if len(fuori) > 0.3 * len(vis):
+                avvisi.append(f"{nome}: il gesto ({n}) esce dallo schermo o finisce sotto barra, didascalia o testo per "
+                              f"{100 * len(fuori) // len(vis)}% del passo ({fuori[0]:.1f}-{fuori[-1]:.1f} s): piano più largo o cx/ay diversi")
+                break
+
+    sopra = []
+    tt = campioni(p["invito"]["da"], durata)
+    for t in tt:
+        tc = schermo(t, (0, 0))[2]
+        if any((q := punto(n, tc)) and pulsante[0] < (s := schermo(t, q))[0] < pulsante[2] and pulsante[1] < s[1] < pulsante[3]
+               for n in ("polso_s", "polso_d", "indice_s", "indice_d", "ginocchio_s", "ginocchio_d", "caviglia_s", "caviglia_d",
+                         "tallone_s", "tallone_d", "punta_s", "punta_d")):
+            sopra.append(t)
+    if len(sopra) > 0.3 * max(1, len(tt)):
+        avvisi.append(f"invito: il pulsante a y {yi} copre mani o piedi nel {100 * len(sopra) // max(1, len(tt))}% del finale: "
+                      "spostalo in alto (invito.y ~300, se lì non c'è il viso)")
 
 for r in errori:
     print("  ✗ " + r)
