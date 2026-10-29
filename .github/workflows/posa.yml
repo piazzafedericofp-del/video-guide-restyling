@@ -51,8 +51,10 @@ jobs:
 
       - name: Strumenti
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+          # libgl1 e libglib2.0-0: OpenCV, che MediaPipe importa, non parte senza
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libgl1 libglib2.0-0 >/dev/null
           pip install -q mediapipe numpy
+          python3 -c "import mediapipe" || exit 1
           curl -sSfL "$MODELLO_URL" -o /tmp/posa.task
 
       - name: Pose
@@ -78,9 +80,11 @@ jobs:
             OUT="media/social/posa/$ID.json"
             [ "$RIFAI" != "true" ] && [ -f "$OUT" ] && continue
             gh release download clip-social -R "$MEDIA_REPO" -p "$NOME" -D girato --clobber < /dev/null || { ERRORI=$((ERRORI+1)); continue; }
-            if python3 codice/scripts/social/posa.py "girato/$NOME" /tmp/posa.task "$OUT" > /dev/null 2>&1; then
+            if python3 codice/scripts/social/posa.py "girato/$NOME" /tmp/posa.task "$OUT" > /dev/null 2> /tmp/errore.txt; then
               FATTE=$((FATTE+1)); NUOVE=$((NUOVE+1))
             else
+              # Solo le ultime righe dell'errore tecnico, la prima volta (nessun contenuto: la clip non compare)
+              [ "$ERRORI" -gt 0 ] || tail -3 /tmp/errore.txt
               ERRORI=$((ERRORI+1))
             fi
             rm -f "girato/$NOME"
