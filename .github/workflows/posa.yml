@@ -51,11 +51,13 @@ jobs:
 
       - name: Strumenti
         run: |
-          # libgl1 e libglib2.0-0: OpenCV, che MediaPipe importa, non parte senza
-          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libgl1 libglib2.0-0 >/dev/null
+          # libgl1, libglib2.0-0 (OpenCV) e libegl1, libgles2 (MediaPipe crea il rilevatore con EGL anche senza scheda grafica)
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libgl1 libglib2.0-0 libegl1 libgles2 >/dev/null
           pip install -q mediapipe numpy
-          python3 -c "import mediapipe" || exit 1
           curl -sSfL "$MODELLO_URL" -o /tmp/posa.task
+          # Prova su mezzo secondo di nero: se il rilevatore non parte ci si ferma qui, senza scaricare le clip
+          ffmpeg -v error -f lavfi -i color=black:s=1080x1920:d=0.5 -pix_fmt yuv420p /tmp/prova.mp4
+          python3 codice/scripts/social/posa.py /tmp/prova.mp4 /tmp/posa.task /tmp/prova.json
 
       - name: Pose
         env:
