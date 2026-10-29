@@ -218,6 +218,26 @@ const TitoloEvidenziato: React.FC<{ testo: string; evidenza?: string }> = ({ tes
   evidenza ? <ConEvidenza testo={testo} evidenza={evidenza} colore={NAVY_800} sfondo={AMBER_400} /> : <>{testo}</>;
 const rigaPiuLunga = (testo: string) => Math.max(...testo.split("\n").map((r) => r.length));
 
+// Copertina "pulita" (29/10/2026, Federico): le righe del problema su un blocco ambra, come l'evidenza della chiusura.
+// Il blocco sporge di 14 px a sinistra, così il testo resta allineato al margine con le altre righe. Se l'evidenza
+// non occupa righe intere del titolo, evidenziatore dentro la riga.
+const TitoloCopertina: React.FC<{ testo: string; evidenza: string }> = ({ testo, evidenza }) => {
+  if (!evidenza) return <>{testo}</>;
+  const righe = testo.split("\n");
+  const ev = evidenza.split("\n");
+  if (!ev.every((r, i) => r === righe[i])) return <ConEvidenza testo={testo} evidenza={evidenza} colore={NAVY_800} sfondo={AMBER_400} />;
+  return (
+    <>
+      {righe.map((riga, i) => (
+        <React.Fragment key={i}>
+          {i > 0 ? <br /> : null}
+          {i < ev.length ? <span style={{ color: NAVY_800, background: AMBER_400, padding: "0 14px", margin: "0 -14px", borderRadius: 8 }}>{riga}</span> : riga}
+        </React.Fragment>
+      ))}
+    </>
+  );
+};
+
 const SEGNI = { si: "✓", no: "✕", attenzione: "!" } as const;
 
 export const Carosello: React.FC<CaroselloProps> = (props) => {
@@ -292,12 +312,11 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
             <div style={{ display: "inline-block", color: "white", background: "rgba(11,36,71,0.8)", border: "2px solid rgba(255,255,255,0.35)", fontSize: 28, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", padding: "8px 18px", borderRadius: 8, marginBottom: 26 }}>
               {s.occhiello}
             </div>
-            <div style={{ color: "white", fontSize: 100, fontWeight: 800, lineHeight: 1.04, whiteSpace: "pre-line" }}>
-              <ConEvidenza testo={s.titolo} evidenza={s.evidenza} colore={AMBER_400} />
+            <div style={{ color: "white", fontSize: 100, fontWeight: 800, lineHeight: 1.12, whiteSpace: "pre-line" }}>
+              <TitoloCopertina testo={s.titolo} evidenza={s.evidenza} />
             </div>
             <div style={{ color: "#E2E8F0", fontSize: 36, fontWeight: 500, lineHeight: 1.35, marginTop: 30 }}>{s.sotto}</div>
           </div>
-          {storia ? null : <div style={{ position: "absolute", right: 90, top: 80, color: "white", fontSize: 30, fontWeight: 700, background: "rgba(11,36,71,0.75)", padding: "10px 22px", borderRadius: 40 }}>Scorri →</div>}
         </Cornice>
       </AbsoluteFill>
     );
