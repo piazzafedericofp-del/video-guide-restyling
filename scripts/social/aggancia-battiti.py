@@ -2,7 +2,7 @@
 
 Uso: python3 scripts/social/aggancia-battiti.py <dati.json> <brano.mp3> <secondo di inizio del brano>
 Riscrive il file: per ogni piano dopo il primo sposta `da` (e `clip` dello stesso tanto, così il movimento resta continuo)
-sul battito più vicino entro 0,35 s. Non sposta uno stacco se finirebbe durante una grafica agganciata al corpo (cerchio, arco, asse, zona, freccia),
+sul battito più vicino entro 0,35 s. Non sposta uno stacco se finirebbe durante una grafica agganciata al corpo (cerchio, arco, asse, freccia),
 oltre il piano precedente/successivo, o se la clip dovrebbe partire prima del suo inizio. I testi non si toccano: restano legati al movimento.
 Il modello del 17/10 (senza "modello": "momenti") passa senza modifiche.
 """
@@ -24,7 +24,7 @@ _, battiti = librosa.beat.beat_track(y=y, sr=sr)
 t_batt = librosa.frames_to_time(battiti, sr=sr) - inizio
 t_batt = t_batt[(t_batt > 0) & (t_batt < durata)]
 grafiche = [(g["da"], g["a"]) for g in ([p["segnale"]] if p.get("segnale") else []) + p.get("archi", []) + p.get("assi", [])
-            + p.get("zone", []) + p.get("frecce", [])]
+            + p.get("frecce", [])]
 dentro = lambda t: any(a < t < b for a, b in grafiche)
 
 piani = p["piani"]

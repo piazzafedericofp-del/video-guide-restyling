@@ -1,14 +1,13 @@
 """Punti del corpo dalla posa (posa.py) per le grafiche di un Reel "momenti" (skill reel-social, "Grafiche di movimento").
 
 La routine non stima più i punti a occhio sull'anteprima (audit del 29/10/2026: per questo metteva quasi solo un cerchio):
-li legge dalla posa calcolata sulla clip, in pixel 1080×1920. I secondi da/a sono del Reel: lo script li porta nella clip
+li legge dalla posa calcolata sulla clip, in pixel 1080×1920. (La zona del problema, alone sul corpo, è stata tolta il 29/10: a Federico non piaceva.) I secondi da/a sono del Reel: lo script li porta nella clip
 con i piani del dati.json (secondo della clip = clip + (t − da) del piano attivo), quindi i piani vanno scritti prima.
 Punti: naso, occhio, orecchio, bocca, spalla, gomito, polso, indice, anca, ginocchio, caviglia, tallone, punta, con "_s" o
 "_d" (sinistra/destra DELLA PERSONA) oppure senza suffisso = punto medio dei due lati; "a+b" = punto medio di due punti.
 Uso (stampa il JSON da mettere nei dati; avvisi su stderr):
   grafiche-posa.py <posa.json> punti <secondo della CLIP>                            tutti i punti e il riquadro del viso
   grafiche-posa.py <posa.json> <dati.json> segnale <punto> <da> <a>                  cerchio (posizione media nel tratto)
-  grafiche-posa.py <posa.json> <dati.json> zona <punto> <da> <a> <rosso|giallo>      zona del problema che segue il corpo
   grafiche-posa.py <posa.json> <dati.json> freccia <punto> <da> <a>                  percorso del punto, per la freccia
   grafiche-posa.py <posa.json> <dati.json> asse <punto,punto,punto> <da> <a>         asse del corpo, con lo scarto dalla linea
   grafiche-posa.py <posa.json> <dati.json> battute <punto> <x|y> <max|min> <da> <a>  secondi in cui ogni ripetizione arriva in fondo
@@ -97,19 +96,6 @@ if __name__ == "__main__":
         if spread > 25:
             print(f"! il punto si sposta fino a {spread:.0f} px nel tratto: il cerchio sta fermo, meglio una freccia o un tratto più corto", file=sys.stderr)
         print(json.dumps({"da": da, "a": a, "x": round(mx), "y": round(my)}))
-    elif cosa == "zona":
-        colore = sys.argv[7]
-        # Misura della zona dal corpo: lunghezza del tronco (spalle → anche) all'inizio del tratto
-        sp, an = lettura("spalla", da), lettura("anca", da)
-        tronco = math.hypot(sp[0] - an[0], sp[1] - an[1]) if sp and an else 300
-        centrale = nome.split("_")[0] in ("anca", "spalla", "bacino") and not nome.endswith(("_s", "_d")) or "+" in nome
-        # Ellisse allungata lungo il tronco (plank laterale approvato: rx lungo il corpo, inclinata come il corpo)
-        rot = math.degrees(math.atan2(sp[1] - an[1], sp[0] - an[0])) if sp and an else 0
-        rot = ((rot + 90) % 180) - 90
-        rx, ry = (0.45 * tronco, 0.24 * tronco) if centrale else (0.22 * tronco, 0.22 * tronco)
-        print(json.dumps({"da": da, "a": a, "colore": colore, **({"pulsa": True} if colore == "rosso" else {}),
-                          "rx": round(rx), "ry": round(ry), "rot": round(rot if centrale else 0),
-                          "chiavi": [{"t": t, "x": round(p[0]), "y": round(p[1])} for t, p in buoni]}))
     elif cosa == "freccia":
         lungo = sum(math.hypot(q[1][0] - p[1][0], q[1][1] - p[1][1]) for p, q in zip(buoni, buoni[1:]))
         dritto = math.hypot(buoni[-1][1][0] - buoni[0][1][0], buoni[-1][1][1] - buoni[0][1][1])

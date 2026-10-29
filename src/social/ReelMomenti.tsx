@@ -6,9 +6,10 @@
 // 3 passi (uno alla volta, con i puntini) · errore facoltativo ("Così no" / "Così sì") · 4 dosaggio in tre battute ·
 // 5 invito (pulsante bianco con 📩, fino alla fine). Ritmo: pochi stacchi, sempre sul battito del brano.
 //
-// Grafiche sul corpo (cerchio, arco, asse, zona del problema, freccia) e contatore: una per volta, legate al momento.
-// Zona, freccia, anello della tenuta e pulsante spostabile vengono dal laboratorio del 29/10/2026 (audit dei Reel,
-// esempio del plank laterale approvato da Federico: "plank ottima").
+// Grafiche sul corpo (cerchio, arco, asse, freccia) e contatore: una per volta, legate al momento.
+// Freccia, anello della tenuta e pulsante spostabile vengono dal laboratorio del 29/10/2026 (audit dei Reel, esempio del
+// plank laterale approvato da Federico: "plank ottima"). La zona del problema (alone rosso e giallo sul corpo) è stata tolta
+// la sera stessa: a Federico non piaceva. Se un dati.json ha ancora `zone`, si ignora.
 //
 // Tutte le coordinate sono in pixel della SORGENTE (la clip), non dello schermo: cerchio, archi e assi seguono da soli
 // l'inquadratura attiva. Un punto P della sorgente va sullo schermo in x = 540 + (P.x − cx)·k·z, y = ay + (P.y − cy)·k·z,
@@ -53,14 +54,6 @@ export type Asse = {
   readonly da: number; readonly a: number; readonly punti: readonly Punto[];
   readonly movimento?: readonly { readonly t: number; readonly punti: readonly Punto[] }[];
 };
-// Zona del problema: ellisse sfumata su una parte del corpo, rossa nel gancio (dove fa male, pulsa) e gialla nel perché
-// (cosa alleni). Centro in pixel della sorgente che segue il corpo (`chiavi` nei secondi del Reel), raggi in pixel della
-// sorgente, `rot` in gradi.
-export type Zona = {
-  readonly da: number; readonly a: number; readonly colore: "rosso" | "giallo"; readonly pulsa?: boolean;
-  readonly rx: number; readonly ry: number; readonly rot: number;
-  readonly chiavi: readonly { readonly t: number; readonly x: number; readonly y: number }[];
-};
 // Freccia della direzione, per i movimenti dritti (bacino che sale, braccio che spinge): segue il percorso misurato di un
 // punto del corpo (pixel della sorgente, secondi del Reel), dritta dall'inizio del gesto al punto di adesso. Se sullo
 // schermo il gesto è corto, si allunga all'indietro nella stessa direzione fino a `lunghezzaMin` px, così si legge.
@@ -93,7 +86,6 @@ export type ReelMomentiProps = {
   readonly segnale?: { readonly da: number; readonly a: number; readonly x: number; readonly y: number }; // cerchio, pixel sorgente
   readonly archi?: readonly Arco[];
   readonly assi?: readonly Asse[];
-  readonly zone?: readonly Zona[];
   readonly frecce?: readonly Freccia[];
   readonly contatore?: Contatore;
   readonly errore?: { readonly da: number; readonly meta: number; readonly a: number; readonly no: string; readonly si: string };
@@ -262,35 +254,6 @@ const AsseCorpo: React.FC<{ readonly p: ReelMomentiProps; readonly asse: Asse }>
             opacity={disegnata >= arrivo - 0.001 ? 1 : 0} />;
         })}
       </g>
-    </svg>
-  );
-};
-
-const ZonaCorpo: React.FC<{ readonly p: ReelMomentiProps; readonly zona: Zona; readonly n: number }> = ({ p, zona, n }) => {
-  const frame = useCurrentFrame();
-  const { fps, width, height, durationInFrames } = useVideoConfig();
-  const t = zona.da + frame / fps;
-  const tt = zona.chiavi.map((c) => c.t);
-  const centro = sulloSchermo(p, t, durationInFrames / fps, {
-    x: interpolate(t, tt, zona.chiavi.map((c) => c.x), CLAMP), y: interpolate(t, tt, zona.chiavi.map((c) => c.y), CLAMP),
-  });
-  const durata = f(fps, zona.a - zona.da);
-  const entra = interpolate(frame, [0, 0.3 * fps, durata - 0.25 * fps, durata], [0, 1, 1, 0], CLAMP);
-  const onda = zona.pulsa ? 0.5 + 0.5 * Math.sin((frame / fps) * Math.PI * 2 * 1.3) : 1;
-  const rgb = zona.colore === "rosso" ? "255, 59, 48" : "255, 214, 10";
-  const id = `zona-${n}`;
-  const scala = zona.pulsa ? 0.94 + 0.08 * onda : 1;
-  return (
-    <svg width={width} height={height} style={{ position: "absolute", inset: 0, opacity: entra * (zona.pulsa ? 0.7 + 0.3 * onda : 0.9) }}>
-      <defs>
-        <radialGradient id={id}>
-          <stop offset="0%" stopColor={`rgba(${rgb}, 0.8)`} />
-          <stop offset="55%" stopColor={`rgba(${rgb}, 0.45)`} />
-          <stop offset="100%" stopColor={`rgba(${rgb}, 0)`} />
-        </radialGradient>
-      </defs>
-      <ellipse cx={centro.x} cy={centro.y} rx={zona.rx * centro.z * scala} ry={zona.ry * centro.z * scala}
-        transform={`rotate(${zona.rot} ${centro.x} ${centro.y})`} fill={`url(#${id})`} />
     </svg>
   );
 };
@@ -535,7 +498,6 @@ export const ReelMomenti: React.FC<ReelMomentiProps> = (p) => {
     <AbsoluteFill style={{ backgroundColor: "black" }}>
       {misura ? null : <Montaggio p={p} />}
       {!misura && p.voce ? <Sequence from={f(fps, p.voce.da)}><Audio src={staticFile(p.voce.file)} /></Sequence> : null}
-      {!misura ? (p.zone ?? []).map((zona, i) => <Da key={`zona${i}`} nome={`Zona ${i + 1}`} da={zona.da} a={zona.a}><ZonaCorpo p={p} zona={zona} n={i} /></Da>) : null}
       {!misura && segnale ? <Da nome="Cerchio" da={segnale.da} a={segnale.a}><Cerchio p={p} da={segnale.da} punto={segnale} /></Da> : null}
       {!misura ? (p.archi ?? []).map((arco, i) => <Da key={i} nome={`Arco ${i + 1}`} da={arco.da} a={arco.a}><ArcoMovimento p={p} arco={arco} /></Da>) : null}
       {!misura ? (p.assi ?? []).map((asse, i) => <Da key={`asse${i}`} nome={`Asse ${i + 1}`} da={asse.da} a={asse.a}><AsseCorpo p={p} asse={asse} /></Da>) : null}
