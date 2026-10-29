@@ -39,6 +39,7 @@ jobs:
           path: media
           sparse-checkout: |
             social/lavori
+            social/clip-qualita.json
             social/ritratto.png
             social/musica.json
             social/guide
@@ -113,7 +114,14 @@ jobs:
           SRC=$(ls girato/* | head -1)
           # Tagli facoltativi (riordino delle ripetizioni per far coincidere testi e movimento): [[da, a], …] in secondi della clip
           N=$(jq '.tagli // [] | length' "$D")
-          COLORE="scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,eq=contrast=1.07:saturation=1.1:gamma=0.97,colorbalance=rs=0.03:bs=-0.03:rm=0.02:bm=-0.02,unsharp=5:5:0.4,fps=30"
+          # Bordi neri sui 4 lati, velocità di lettura, zoom entro la nitidezza vera della clip e tratti rovinati dalla pulizia
+          # (audit del 29/10/2026): esito completo solo nel progetto privato (errore.txt), nei log pubblici niente testi
+          python3 scripts/social/controlla-reel.py "$D" --clip "$SRC" --qualita ../media/social/clip-qualita.json > out/controlli.txt 2>&1 \
+            || { echo "Controllo del Reel: da correggere"; exit 1; }
+          # Sulle clip già compresse la nitidezza in più accentua i blocchi
+          NITIDO=",unsharp=5:5:0.4"
+          [ "$(jq -r --arg c "$CLIP" '.clip[$c].compressa // false' ../media/social/clip-qualita.json 2>/dev/null)" = "true" ] && NITIDO=""
+          COLORE="scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,eq=contrast=1.07:saturation=1.1:gamma=0.97,colorbalance=rs=0.03:bs=-0.03:rm=0.02:bm=-0.02${NITIDO},fps=30"
           if [ "$N" -gt 0 ]; then
             F=""; L=""
             for ((i=0; i<N; i++)); do
@@ -129,8 +137,8 @@ jobs:
           ffmpeg -nostdin -v error -f lavfi -i "color=black:s=1080x1920:r=30:d=$DUR" -c:v libx264 -pix_fmt yuv420p public/_nero.mp4
           node scripts/social/misura-reel.mjs out/misura
           # Esito completo solo nel progetto privato (errore.txt): nei log pubblici niente testi
-          python3 scripts/social/controlla-zone.py out/misura > out/controlli.txt 2>&1 || { echo "Controllo zone: testi fuori zona"; exit 1; }
-          tail -1 out/controlli.txt
+          python3 scripts/social/controlla-zone.py out/misura >> out/controlli.txt 2>&1 || { echo "Controllo zone: testi fuori zona"; exit 1; }
+          grep -E "^(Reel:|Tutto)" out/controlli.txt
 
       - name: Reel · render, musica e copertina
         if: steps.scelta.outputs.formato == 'reel'
