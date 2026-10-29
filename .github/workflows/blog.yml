@@ -104,6 +104,12 @@ jobs:
         env:
           RELEASE_TOKEN: ${{ github.token }}
 
+      # ffmpeg ritaglia l'immagine dell'articolo: il runner non lo ha (29/10/2026 il flusso è caduto e l'articolo
+      # consegnato dalla routine è rimasto "in scrittura"). Si installa mentre la routine parte, solo se c'è da aspettarla
+      - name: Strumenti per le immagini
+        run: |
+          [ "$(cat /tmp/attesa.json)" = "[]" ] || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg; }
+
       - name: Attesa della routine, immagini e consegna
         env:
           GENERATORE_TOKEN: ${{ secrets.GENERATORE_TOKEN }}
@@ -118,13 +124,21 @@ jobs:
               urllib.request.urlopen(r, timeout=60)
           # Immagine dell'articolo (26/10/2026): la routine scrive immagine-richiesta.json {n, prompt}; qui la si genera
           # con la dashboard (Workers AI, gratis), la si ritaglia in 3:2 e la si mette in media/blog/<id>/immagine-<n>.jpg,
-          # dove la routine, ancora al lavoro, la guarda e la usa
+          # dove la routine, ancora al lavoro, la guarda e la usa.
+          # Un'immagine non riuscita non ferma la consegna dell'articolo: al massimo 2 prove per immagine (ogni prova è
+          # una generazione), poi la routine, che non la vede arrivare, tiene la foto di prima e lo scrive nei controlli
+          fallite = {}
           def immagine(id):
               f = f"media/blog/{id}/immagine-richiesta.json"
               if not os.path.exists(f): return
               q = json.load(open(f)); n = int(q.get("n", 1))
               uscita = f"media/blog/{id}/immagine-{n}.jpg"
-              if os.path.exists(uscita): return
+              if os.path.exists(uscita) or fallite.get(uscita, 0) >= 2: return
+              try: genera(id, q, n, uscita)
+              except Exception as e:
+                  fallite[uscita] = fallite.get(uscita, 0) + 1
+                  print(id, "immagine", n, "non riuscita, prova", fallite[uscita], e)
+          def genera(id, q, n, uscita):
               chiave = f"blog/{id}/immagine-{n}.jpg"
               h = {"authorization": "Bearer " + G, "content-type": "application/json", "user-agent": "blog-actions/1.0"}
               for t in range(3):
@@ -132,7 +146,7 @@ jobs:
                       urllib.request.urlopen(urllib.request.Request(B + "/api/generatore/immagine", method="POST", headers=h,
                           data=json.dumps({"prompt": q["prompt"], "chiave": chiave}).encode()), timeout=120); break
                   except Exception as e: print(id, "immagine, tentativo", t + 1, e)
-              else: return
+              else: raise RuntimeError("generatore non raggiungibile")
               grezza = urllib.request.urlopen(urllib.request.Request(B + "/api/media/" + urllib.parse.quote(chiave, safe=""), headers=h), timeout=60).read()
               open("/tmp/grezza.jpg", "wb").write(grezza)
               subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", "/tmp/grezza.jpg", "-vf", "crop=iw:iw*2/3:0:(ih-iw*2/3)/2", "-q:v", "3", uscita], check=True)
