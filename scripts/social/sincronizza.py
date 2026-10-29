@@ -21,6 +21,9 @@ radice.mkdir(parents=True, exist_ok=True)
 risposta = chiama("/api/generatore/lavori")
 lavori = {l["id"]: l for l in risposta["lavori"]}
 (media / "social" / "recenti.json").write_text(json.dumps(risposta["recenti"], ensure_ascii=False, indent=1))
+# Lezioni approvate da Federico per i robot social (piano "robot che imparano"): sempre l'ultima versione, a ogni giro.
+# Non entrano nella firma dei lavori: cambiare una lezione non fa rifare niente di già consegnato
+(media / "social" / "lezioni.json").write_text(json.dumps(risposta.get("lezioni", []), ensure_ascii=False, indent=1))
 
 nuovi = rifatti = annullati = 0
 firma = lambda l: json.dumps([l.get("lavoro"), l.get("richiesta_modifica"), l.get("brief"), l.get("clip_id"), l.get("tema_id")], ensure_ascii=False)
