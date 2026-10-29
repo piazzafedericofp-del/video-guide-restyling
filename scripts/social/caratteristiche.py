@@ -60,6 +60,11 @@ def _reel(p, dati, lavoro):
         "piani": len(p.get("piani") or []),
         "copertina_domanda": " ".join(copertina.get("righe") or []).strip().endswith("?"),
         "brano": dati.get("brano", ""),
+        # Grafiche sul corpo (audit del 29/10/2026: prima quasi solo il cerchio), per confrontare i Reel con e senza
+        "grafiche": [nome for nome, c in (("cerchio", p.get("segnale")), ("arco", p.get("archi")), ("asse", p.get("assi")),
+                                          ("zona", p.get("zone")), ("freccia", p.get("frecce")),
+                                          ("anello", (p.get("dosaggio") or {}).get("anello")), ("contatore", p.get("contatore"))) if c],
+        "invito_alto": ((p.get("invito") or {}).get("y") or 1175) < 1175,
     }
 
 

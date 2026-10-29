@@ -6,6 +6,10 @@
 // 3 passi (uno alla volta, con i puntini) · errore facoltativo ("Così no" / "Così sì") · 4 dosaggio in tre battute ·
 // 5 invito (pulsante bianco con 📩, fino alla fine). Ritmo: pochi stacchi, sempre sul battito del brano.
 //
+// Grafiche sul corpo (cerchio, arco, asse, zona del problema, freccia) e contatore: una per volta, legate al momento.
+// Zona, freccia, anello della tenuta e pulsante spostabile vengono dal laboratorio del 29/10/2026 (audit dei Reel,
+// esempio del plank laterale approvato da Federico: "plank ottima").
+//
 // Tutte le coordinate sono in pixel della SORGENTE (la clip), non dello schermo: cerchio, archi e assi seguono da soli
 // l'inquadratura attiva. Un punto P della sorgente va sullo schermo in x = 540 + (P.x − cx)·k·z, y = ay + (P.y − cy)·k·z,
 // con k = 1920 / altezza della sorgente e z lo zoom del piano in quell'istante.
@@ -49,6 +53,27 @@ export type Asse = {
   readonly da: number; readonly a: number; readonly punti: readonly Punto[];
   readonly movimento?: readonly { readonly t: number; readonly punti: readonly Punto[] }[];
 };
+// Zona del problema: ellisse sfumata su una parte del corpo, rossa nel gancio (dove fa male, pulsa) e gialla nel perché
+// (cosa alleni). Centro in pixel della sorgente che segue il corpo (`chiavi` nei secondi del Reel), raggi in pixel della
+// sorgente, `rot` in gradi.
+export type Zona = {
+  readonly da: number; readonly a: number; readonly colore: "rosso" | "giallo"; readonly pulsa?: boolean;
+  readonly rx: number; readonly ry: number; readonly rot: number;
+  readonly chiavi: readonly { readonly t: number; readonly x: number; readonly y: number }[];
+};
+// Freccia della direzione, per i movimenti dritti (bacino che sale, braccio che spinge): segue il percorso misurato di un
+// punto del corpo (pixel della sorgente, secondi del Reel), dritta dall'inizio del gesto al punto di adesso. Se sullo
+// schermo il gesto è corto, si allunga all'indietro nella stessa direzione fino a `lunghezzaMin` px, così si legge.
+export type Freccia = {
+  readonly da: number; readonly a: number; readonly lunghezzaMin?: number;
+  readonly punti: readonly { readonly t: number; readonly x: number; readonly y: number }[];
+};
+// Contatore delle ripetizioni: scatta a ogni `battute` (secondi del Reel in cui la ripetizione arriva in fondo, misurati
+// sulla posa); x e y sono pixel dello SCHERMO (sta nella zona libera, non sul corpo)
+export type Contatore = {
+  readonly da: number; readonly a: number; readonly totale: number; readonly battute: readonly number[];
+  readonly x: number; readonly y: number;
+};
 export type Parola = { readonly t: number; readonly testo: string };
 
 export type ReelMomentiProps = {
@@ -68,11 +93,16 @@ export type ReelMomentiProps = {
   readonly segnale?: { readonly da: number; readonly a: number; readonly x: number; readonly y: number }; // cerchio, pixel sorgente
   readonly archi?: readonly Arco[];
   readonly assi?: readonly Asse[];
+  readonly zone?: readonly Zona[];
+  readonly frecce?: readonly Freccia[];
+  readonly contatore?: Contatore;
   readonly errore?: { readonly da: number; readonly meta: number; readonly a: number; readonly no: string; readonly si: string };
   // `parole` per le tenute (Federico, 24/10/2026: "3 ripetizioni × 1 serie da 30 s" non si capiva): es. "30 s" ["per lato", "volte"] e "3"
+  // `anello` per le tenute: il tempo ("30 s") dentro un anello che si riempie (scende fino a ~580 px: viso sotto o fuori quadro)
   readonly dosaggio: { readonly da: number; readonly a: number; readonly ripetizioni: string; readonly serie: string; readonly etichetta: string;
-    readonly parole?: readonly [string, string] };
-  readonly invito: { readonly da: number; readonly testo: string; readonly icona: string };
+    readonly parole?: readonly [string, string]; readonly anello?: boolean };
+  // `y`: altezza del pulsante (1175 di base); in alto (~300) quando a 1175 coprirebbe mani, piedi o attrezzo che lavorano
+  readonly invito: { readonly da: number; readonly testo: string; readonly icona: string; readonly y?: number };
   readonly firma: string;
   readonly copertina?: Copertina; // copertina composta (scelta di Federico, 23/10 sera): fotogramma scelto, stretto, titolo sul petto
   readonly misura?: boolean; // solo testi su nero, per controlla-zone.py
@@ -236,6 +266,90 @@ const AsseCorpo: React.FC<{ readonly p: ReelMomentiProps; readonly asse: Asse }>
   );
 };
 
+const ZonaCorpo: React.FC<{ readonly p: ReelMomentiProps; readonly zona: Zona; readonly n: number }> = ({ p, zona, n }) => {
+  const frame = useCurrentFrame();
+  const { fps, width, height, durationInFrames } = useVideoConfig();
+  const t = zona.da + frame / fps;
+  const tt = zona.chiavi.map((c) => c.t);
+  const centro = sulloSchermo(p, t, durationInFrames / fps, {
+    x: interpolate(t, tt, zona.chiavi.map((c) => c.x), CLAMP), y: interpolate(t, tt, zona.chiavi.map((c) => c.y), CLAMP),
+  });
+  const durata = f(fps, zona.a - zona.da);
+  const entra = interpolate(frame, [0, 0.3 * fps, durata - 0.25 * fps, durata], [0, 1, 1, 0], CLAMP);
+  const onda = zona.pulsa ? 0.5 + 0.5 * Math.sin((frame / fps) * Math.PI * 2 * 1.3) : 1;
+  const rgb = zona.colore === "rosso" ? "255, 59, 48" : "255, 214, 10";
+  const id = `zona-${n}`;
+  const scala = zona.pulsa ? 0.94 + 0.08 * onda : 1;
+  return (
+    <svg width={width} height={height} style={{ position: "absolute", inset: 0, opacity: entra * (zona.pulsa ? 0.7 + 0.3 * onda : 0.9) }}>
+      <defs>
+        <radialGradient id={id}>
+          <stop offset="0%" stopColor={`rgba(${rgb}, 0.8)`} />
+          <stop offset="55%" stopColor={`rgba(${rgb}, 0.45)`} />
+          <stop offset="100%" stopColor={`rgba(${rgb}, 0)`} />
+        </radialGradient>
+      </defs>
+      <ellipse cx={centro.x} cy={centro.y} rx={zona.rx * centro.z * scala} ry={zona.ry * centro.z * scala}
+        transform={`rotate(${zona.rot} ${centro.x} ${centro.y})`} fill={`url(#${id})`} />
+    </svg>
+  );
+};
+
+const FrecciaMisurata: React.FC<{ readonly p: ReelMomentiProps; readonly freccia: Freccia }> = ({ p, freccia }) => {
+  const frame = useCurrentFrame();
+  const { fps, width, height, durationInFrames } = useVideoConfig();
+  const t = freccia.da + frame / fps;
+  const pt = freccia.punti;
+  const adesso = { x: interpolate(t, pt.map((q) => q.t), pt.map((q) => q.x), CLAMP), y: interpolate(t, pt.map((q) => q.t), pt.map((q) => q.y), CLAMP) };
+  const fineReel = durationInFrames / fps;
+  const schermo = [...pt.filter((q) => q.t < t), adesso].map((q) => sulloSchermo(p, t, fineReel, q));
+  if (schermo.length < 2) return null;
+  // Allunga all'indietro, nella direzione del gesto, se il percorso è più corto del minimo
+  const lungo = schermo.slice(1).reduce((s, q, i) => s + Math.hypot(q.x - schermo[i].x, q.y - schermo[i].y), 0);
+  const min = freccia.lunghezzaMin ?? 0;
+  const finale = schermo[schermo.length - 1];
+  const dx = finale.x - schermo[0].x, dy = finale.y - schermo[0].y, n = Math.hypot(dx, dy) || 1;
+  const pieno = Math.min(1, (t - freccia.da) / Math.max(0.01, pt[pt.length - 1].t - freccia.da));
+  // Freccia dritta dall'inizio del gesto al punto di adesso: i piccoli assestamenti finali non girano la punta
+  const inizio = lungo < min ? { x: schermo[0].x - (dx / n) * (min - lungo) * pieno, y: schermo[0].y - (dy / n) * (min - lungo) * pieno } : schermo[0];
+  if (Math.hypot(finale.x - inizio.x, finale.y - inizio.y) < 12) return null;
+  const dir = Math.atan2(finale.y - inizio.y, finale.x - inizio.x);
+  const p1 = [finale.x - 34 * Math.cos(dir - 0.55), finale.y - 34 * Math.sin(dir - 0.55)];
+  const p2 = [finale.x - 34 * Math.cos(dir + 0.55), finale.y - 34 * Math.sin(dir + 0.55)];
+  const durata = f(fps, freccia.a - freccia.da);
+  const tratto = { fill: "none", strokeLinecap: "round" as const, strokeLinejoin: "round" as const, stroke: GIALLO, strokeWidth: 9 };
+  return (
+    <svg width={width} height={height} style={{ position: "absolute", inset: 0, opacity: interpolate(frame, [0, 0.12 * fps, durata - 0.2 * fps, durata], [0, 1, 1, 0], CLAMP) }}>
+      <g style={{ filter: "drop-shadow(0 0 4px rgba(0,0,0,0.7))" }}>
+        <polyline points={`${inizio.x},${inizio.y} ${finale.x},${finale.y}`} {...tratto} />
+        <path d={`M ${p1[0]} ${p1[1]} L ${finale.x} ${finale.y} L ${p2[0]} ${p2[1]}`} {...tratto} />
+      </g>
+    </svg>
+  );
+};
+
+const ContatoreRipetizioni: React.FC<{ readonly c: Contatore }> = ({ c }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const t = c.da + frame / fps;
+  const fatte = c.battute.filter((b) => t >= b);
+  if (fatte.length === 0) return null;
+  const dallaBattuta = (t - fatte[fatte.length - 1]) * fps;
+  const entra = interpolate(t, [c.battute[0], c.battute[0] + 0.15], [0, 1], CLAMP) * interpolate(t, [c.a - 0.2, c.a], [1, 0], CLAMP);
+  return (
+    <div style={{ position: "absolute", left: c.x - 150, width: 300, top: c.y - 56, display: "flex", justifyContent: "center", opacity: entra }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", backgroundColor: "rgba(0,0,0,0.72)", borderRadius: 26, padding: "6px 30px 10px" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, fontFamily: "Inter" }}>
+          <span style={{ display: "inline-block", fontWeight: 900, fontSize: 70, lineHeight: 1, color: GIALLO,
+            scale: String(interpolate(dallaBattuta, [0, 5, 12], [1.35, 1.08, 1], CLAMP)) }}>{fatte.length}</span>
+          <span style={{ fontWeight: 800, fontSize: 36, color: "white" }}>/ {c.totale}</span>
+        </div>
+        <div style={{ fontFamily: "Inter", fontWeight: 800, fontSize: 22, letterSpacing: "0.08em", textTransform: "uppercase", color: "white" }}>ripetizioni</div>
+      </div>
+    </div>
+  );
+};
+
 // ─── 1 · Gancio ───
 const Titolo: React.FC<{ readonly righe: readonly string[]; readonly durata: number; readonly top?: number; readonly fermo?: boolean;
   readonly gialla?: number | readonly number[]; readonly grande?: boolean }> = ({ righe, durata, top = 270, fermo = false, gialla, grande = false }) => {
@@ -361,12 +475,47 @@ const Dosaggio: React.FC<{ readonly d: ReelMomentiProps["dosaggio"]; readonly du
   );
 };
 
+// Tenute: il tempo dentro un anello che si riempie, poi "×" e il numero delle volte, poi la condizione
+const DosaggioAnello: React.FC<{ readonly d: ReelMomentiProps["dosaggio"]; readonly durata: number }> = ({ d, durata }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const R = 108, D = 2 * R + 16, giro = 2 * Math.PI * R;
+  const pieno = interpolate(frame, [0.15 * fps, 1.6 * fps], [0, 1], { ...CLAMP, easing: Easing.inOut(Easing.cubic) });
+  const entra = (da: number) => ({ opacity: interpolate(frame, [da, da + 3], [0, 1], CLAMP), scale: interpolate(frame, [da, da + 10], [0.6, 1], { ...CLAMP, easing: SCATTO, output: "perceptual-scale" }) });
+  const corpo = Math.min(32, fitText({ text: d.etichetta.toUpperCase(), withinWidth: 680, fontFamily: "Inter", fontWeight: 800, letterSpacing: "0.04em" }).fontSize);
+  return (
+    <div style={{ position: "absolute", left: MARGINE, right: MARGINE, top: 286, display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
+      opacity: interpolate(frame, [durata - 5, durata], [1, 0], CLAMP) }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 26 }}>
+        <div style={{ position: "relative", width: D, height: D, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", ...entra(0) }}>
+          <svg width={D} height={D} style={{ position: "absolute", inset: 0 }}>
+            <circle cx={D / 2} cy={D / 2} r={R} fill="rgba(0,0,0,0.38)" stroke="rgba(255,255,255,0.4)" strokeWidth={12} />
+            <circle cx={D / 2} cy={D / 2} r={R} fill="none" stroke={GIALLO} strokeWidth={12} strokeLinecap="round"
+              strokeDasharray={giro} strokeDashoffset={giro * (1 - pieno)} transform={`rotate(-90 ${D / 2} ${D / 2})`} />
+          </svg>
+          <div style={{ position: "relative", fontFamily: "Inter", fontWeight: 900, fontSize: 84, lineHeight: 0.95, color: "white", ...contorno(11) }}>{d.ripetizioni}</div>
+          <div style={{ position: "relative", fontFamily: "Inter", fontWeight: 800, fontSize: 28, color: "white", textTransform: "uppercase", letterSpacing: "0.03em", ...contorno(6) }}>{d.parole?.[0] ?? "ripetizioni"}</div>
+        </div>
+        <div style={{ fontFamily: "Inter", fontWeight: 900, fontSize: 70, color: GIALLO, ...contorno(9), opacity: interpolate(frame, [0.57 * fps, 0.63 * fps], [0, 1], CLAMP) }}>×</div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", ...entra(0.6 * fps) }}>
+          <div style={{ fontFamily: "Inter", fontWeight: 900, fontSize: 112, lineHeight: 0.95, color: "white", ...contorno(12) }}>{d.serie}</div>
+          <div style={{ fontFamily: "Inter", fontWeight: 800, fontSize: 36, color: "white", textTransform: "uppercase", letterSpacing: "0.03em", ...contorno(7) }}>{d.parole?.[1] ?? "serie"}</div>
+        </div>
+      </div>
+      <div style={{ backgroundColor: AMBRA, color: NAVY, borderRadius: 14, padding: "6px 20px 8px", fontFamily: "Inter", fontWeight: 800, fontSize: corpo, letterSpacing: "0.04em", textTransform: "uppercase",
+        opacity: interpolate(frame, [1.2 * fps, 1.3 * fps], [0, 1], CLAMP) }}>
+        {d.etichetta}
+      </div>
+    </div>
+  );
+};
+
 // ─── 5 · Invito: pulsante bianco con l'icona, fino alla fine ───
-const Invito: React.FC<{ readonly testo: string; readonly icona: string }> = ({ testo, icona }) => {
+const Invito: React.FC<{ readonly testo: string; readonly icona: string; readonly y: number }> = ({ testo, icona, y }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   return (
-    <div style={{ position: "absolute", left: MARGINE + 15, right: MARGINE + 15, top: 1175, display: "flex", justifyContent: "center",
+    <div style={{ position: "absolute", left: MARGINE + 15, right: MARGINE + 15, top: y, display: "flex", justifyContent: "center",
       translate: interpolate(frame, [0, 0.45 * fps], ["0px 60px", "0px 0px"], { ...CLAMP, easing: MORBIDO }),
       opacity: interpolate(frame, [0, 0.15 * fps], [0, 1], CLAMP) }}>
       <div style={{ display: "flex", alignItems: "center", gap: 18, backgroundColor: "white", color: "black", borderRadius: 999, padding: "22px 44px", fontFamily: "Inter", fontSize: 50, fontWeight: 800,
@@ -386,9 +535,11 @@ export const ReelMomenti: React.FC<ReelMomentiProps> = (p) => {
     <AbsoluteFill style={{ backgroundColor: "black" }}>
       {misura ? null : <Montaggio p={p} />}
       {!misura && p.voce ? <Sequence from={f(fps, p.voce.da)}><Audio src={staticFile(p.voce.file)} /></Sequence> : null}
+      {!misura ? (p.zone ?? []).map((zona, i) => <Da key={`zona${i}`} nome={`Zona ${i + 1}`} da={zona.da} a={zona.a}><ZonaCorpo p={p} zona={zona} n={i} /></Da>) : null}
       {!misura && segnale ? <Da nome="Cerchio" da={segnale.da} a={segnale.a}><Cerchio p={p} da={segnale.da} punto={segnale} /></Da> : null}
       {!misura ? (p.archi ?? []).map((arco, i) => <Da key={i} nome={`Arco ${i + 1}`} da={arco.da} a={arco.a}><ArcoMovimento p={p} arco={arco} /></Da>) : null}
       {!misura ? (p.assi ?? []).map((asse, i) => <Da key={`asse${i}`} nome={`Asse ${i + 1}`} da={asse.da} a={asse.a}><AsseCorpo p={p} asse={asse} /></Da>) : null}
+      {!misura ? (p.frecce ?? []).map((fr, i) => <Da key={`freccia${i}`} nome={`Freccia ${i + 1}`} da={fr.da} a={fr.a}><FrecciaMisurata p={p} freccia={fr} /></Da>) : null}
 
       <Da nome="1 Gancio" da={0} a={gancio.a}>
         {gancio.parlato ? <Sottotitoli y={gancio.parlato.y} parole={gancio.parlato.parole} /> : <Titolo righe={gancio.righe} gialla={gancio.gialla} durata={f(fps, gancio.a)} />}
@@ -404,8 +555,11 @@ export const ReelMomenti: React.FC<ReelMomentiProps> = (p) => {
           <Da nome="Errore: così sì" da={errore.meta} a={errore.a}><Esito ok testo={errore.si} durata={f(fps, errore.a - errore.meta)} /></Da>
         </>
       ) : null}
-      <Da nome="4 Dosaggio" da={dosaggio.da} a={dosaggio.a}><Dosaggio d={dosaggio} durata={f(fps, dosaggio.a - dosaggio.da)} /></Da>
-      <Da nome="5 Invito" da={invito.da} a={fine}><Invito testo={invito.testo} icona={invito.icona} /></Da>
+      {p.contatore ? <Da nome="Contatore" da={p.contatore.da} a={p.contatore.a}><ContatoreRipetizioni c={p.contatore} /></Da> : null}
+      <Da nome="4 Dosaggio" da={dosaggio.da} a={dosaggio.a}>
+        {dosaggio.anello ? <DosaggioAnello d={dosaggio} durata={f(fps, dosaggio.a - dosaggio.da)} /> : <Dosaggio d={dosaggio} durata={f(fps, dosaggio.a - dosaggio.da)} />}
+      </Da>
+      <Da nome="5 Invito" da={invito.da} a={fine}><Invito testo={invito.testo} icona={invito.icona} y={invito.y ?? 1175} /></Da>
 
       <div style={{ position: "absolute", left: 0, right: 0, top: 1362, textAlign: "center", color: "white", fontFamily: "Inter", fontSize: 30, fontWeight: 600, WebkitTextStroke: "5px rgba(0, 0, 0, 0.75)", paintOrder: "stroke fill" }}>
         {p.firma}
