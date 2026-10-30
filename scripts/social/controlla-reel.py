@@ -13,7 +13,8 @@ Righe "✗" = da correggere (il render si ferma e la routine corregge una volta)
    anche lo zoom massimo scritto in clip-qualita.json, che va scritto con --misura (gli stessi numeri del render).
 4. Tratti da non usare, da clip-qualita.json: `evita` [[da, a]] e `solo` [[da, a]] in secondi della clip,
    `evita_zone` [{da, a, x0, y0, x1, y1, zoom_oltre?}] = riquadro della clip (pixel 1080×1920) rovinato dalla pulizia
-   in quei secondi, `tratti_deboli` [{da, a, zoom_max, zoom_max_gancio}] = secondi della clip più morbidi della media.
+   in quei secondi, `tratti_deboli` [{da, a, zoom_max, zoom_max_gancio, accettato?}] = secondi della clip più morbidi
+   della media; con `accettato` (il motivo, solo con l'ok di Federico) vale il loro limite anche se la misura è più bassa.
 5. Con --posa (posa.py), avvisi: viso sotto un testo, gesto fuori dalla zona visibile o sotto il riquadro del passo,
    pulsante dell'invito sopra mani o piedi (audit del 29/10: gomito, stacco su una gamba, anca, lento avanti).
 """
@@ -235,13 +236,20 @@ if sorgente:
 for i, q in enumerate(piani):
     z = max(q["z0"], q["z1"])
     lim, perche = limite_q[1 if gancio[i] else 0], "clip-qualita.json"
+    accettato = False
     # Tratti più deboli della media (es. gli ultimi secondi dell'alluce): vale il loro limite
     for t in Q.get("tratti_deboli", []):
-        if min(q["clip"] + fine[i] - q["da"], t["a"]) - max(q["clip"], t["da"]) > 0.05:
+        c0, c1 = q["clip"], q["clip"] + fine[i] - q["da"]
+        if min(c1, t["a"]) - max(c0, t["da"]) > 0.05:
             tl = t["zoom_max_gancio" if gancio[i] else "zoom_max"]
+            # `accettato` (con il motivo): morbido già nella sorgente e tenuto per scelta di Federico; vale il suo limite
+            # (di solito 1, nessuno zoom) al posto della misura, solo per i piani tutti dentro il tratto (alluce, 30/10/2026)
+            if t.get("accettato") and c0 >= t["da"] - 0.05 and c1 <= t["a"] + 0.05:
+                lim, perche, accettato = tl, f"tratto {t['da']}-{t['a']} s accettato: {t['accettato']}", True
+                break
             if lim is None or tl < lim:
                 lim, perche = tl, f"tratto debole {t['da']}-{t['a']} s della clip, clip-qualita.json"
-    if misurati[i] and (lim is None or misurati[i][0] < lim):
+    if misurati[i] and not accettato and (lim is None or misurati[i][0] < lim):
         lim, perche = misurati[i][0], f"dettaglio del tratto {misurati[i][1]:.0f} px, sullo schermo {misurati[i][1] / z:.0f}"
     if lim is not None and z > lim + 0.02:
         errori.append(f"piano {i + 1} ({q['da']:.2f}-{fine[i]:.2f} s, {'gancio' if gancio[i] else 'piano'}): zoom {z} oltre il "
