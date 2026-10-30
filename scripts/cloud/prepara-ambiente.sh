@@ -65,9 +65,15 @@ else
   echo "ATTENZIONE: Chromium preinstallato non trovato in /opt/pw-browsers"
 fi
 
-# Dipendenze del codice
-if [ ! -d "$CODICE/node_modules" ]; then
-  (cd "$CODICE" && npm ci --no-audit --no-fund >/tmp/npm.log 2>&1) || echo "ATTENZIONE: npm ci non riuscito (/tmp/npm.log)"
+# Dipendenze del codice: si controlla che ci siano davvero, non la cartella. Il 30/10/2026 un npm ci interrotto
+# ("ENOTEMPTY" nella pulizia) aveva lasciato node_modules a metà e il lancio successivo lo saltava: niente @remotion/bundler
+npm_ok() { [ -x "$CODICE/node_modules/.bin/remotion" ] && [ -d "$CODICE/node_modules/@remotion/bundler" ]; }
+if ! npm_ok; then
+  for _ in 1 2; do
+    (cd "$CODICE" && npm ci --no-audit --no-fund >>/tmp/npm.log 2>&1) && npm_ok && break
+    sleep 5
+  done
+  npm_ok || { echo "ATTENZIONE: npm ci non riuscito. Ultime righe di /tmp/npm.log:"; tail -5 /tmp/npm.log; }
 fi
 
 mv "$VARIABILI" "$PRONTO"   # da qui /tmp/ambiente.sh smette di aspettare
