@@ -170,7 +170,8 @@ jobs:
                   print(id, "consegnato:", r["stato"], "al minuto", minuto)
                   del attesa[id]
           for id, giro in attesa.items():
-              stato({"id": id, "stato": "errore", "giro": giro, "risultato": {"messaggio": "La routine non ha consegnato entro 2 ore. Premi Riprova."}})
+              # senza_risposta: il Worker lo rimette in coda per domani (limite dell'account, 27-28/10/2026), alla terza volta errore
+              stato({"id": id, "stato": "errore", "giro": giro, "risultato": {"senza_risposta": True, "messaggio": "La routine non ha consegnato entro 2 ore."}})
               print(id, "nessuna risposta in 2 ore")
           EOF
 
