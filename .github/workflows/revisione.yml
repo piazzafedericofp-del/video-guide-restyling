@@ -3,6 +3,9 @@
 # attraverso il progetto privato, come per Reel e caroselli.
 # 1. "dati": il 1° del mese porta i numeri del mese chiuso (GET /api/revisione/dati, solo totali, nessun dato
 #    personale) in media/revisione/<mese>/dati.json. Nei mesi di fine trimestre anche i due mesi prima.
+#    Dal 30/10/2026 lo avvia la dashboard alla fine della raccolta notturna del 1° (cron delle 4:30 UTC), una volta
+#    sola: il timer di GitHub salta giri per ore e la routine delle 7:07 senza dati.json non fa la revisione.
+#    Il timer qui sotto è solo di riserva: se dati.json c'è già, non fa nulla.
 # 2. "consegna": quando la routine ha scritto media/revisione/<mese>/revisione.json, la consegna alla dashboard
 #    (POST /api/revisione, che manda l'email a Federico) e scrive il file "consegnato".
 # Nei log non compare nessun numero né testo della revisione.
@@ -10,7 +13,7 @@ name: Revisione mensile
 
 on:
   schedule:
-    - cron: "30 4 1 * *"    # dati: 6:30 ora legale / 5:30 ora solare
+    - cron: "45 4 1 * *"    # dati, riserva: 6:45 ora legale / 5:45 ora solare (prima della routine delle 7:07)
     - cron: "37 * 1-3 * *"  # consegna: ogni ora nei primi 3 giorni del mese
   workflow_dispatch:
     inputs:
@@ -48,9 +51,10 @@ jobs:
             revisione
 
       - name: Numeri del mese dalla dashboard
-        if: github.event.schedule == '30 4 1 * *' || (github.event_name == 'workflow_dispatch' && inputs.azione == 'dati')
+        if: github.event.schedule == '45 4 1 * *' || (github.event_name == 'workflow_dispatch' && inputs.azione == 'dati')
         env:
           MESE: ${{ inputs.mese }}
+          EVENTO: ${{ github.event_name }}
         run: |
           python3 - <<'EOF'
           import datetime, json, os, urllib.request
@@ -63,6 +67,8 @@ jobs:
               return f"{y}-{mm:02d}"
           mesi = [mese] + ([indietro(1), indietro(2)] if m % 3 == 0 else [])
           cartella = f"media/revisione/{mese}"
+          if os.environ.get("EVENTO") == "schedule" and os.path.exists(f"{cartella}/dati.json"):
+              print("dati.json già portato dalla dashboard: niente da fare"); raise SystemExit(0)
           os.makedirs(cartella, exist_ok=True)
           for i, x in enumerate(mesi):
               r = urllib.request.Request(f"{os.environ['DASHBOARD']}/api/revisione/dati?mese={x}",

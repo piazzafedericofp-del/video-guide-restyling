@@ -1,15 +1,18 @@
 # Azioni approvate dalla revisione mensile che fa Claude da solo (skill revisione-mese §6, 23/10/2026).
-# Ogni quarto d'ora:
-# 1. consegna alla dashboard i risultati scritti dalla routine in media/azioni/<id>/risultato.json;
+# Dal 30/10/2026 lo avvia la dashboard quando Federico crea lavoro per la routine (Sì a un'azione di Claude,
+# Pubblica, modifica, risposta), non più ogni quarto d'ora; il timer di una volta al giorno è solo di riserva.
+# 1. consegna alla dashboard i risultati scritti dalla routine in media/azioni/<id>/risultato.json e non ancora consegnati;
 # 2. porta le richieste nuove della dashboard (lavora, modifica, pubblica) in media/azioni/<id>/lavoro.json e
-#    pubblica una release "azione-<id>-<giro>": è l'evento che fa partire la routine "Azioni approvate";
-# 3. cancella le release "azione-*" più vecchie di 2 ore (servono solo come segnale).
+#    pubblica qui una pre-release "azione-<id>-<giro>": è l'evento della routine "Azioni approvate", l'unico che la
+#    sveglia (prima ascoltava tutte le release di video-guide-media e partiva a ogni turno dei social: 17 volte il 30/10);
+# 3. aspetta risultato.json della routine (al massimo 2 ore) e lo consegna alla dashboard;
+# 4. cancella le release "azione-*" più vecchie di 2 ore (servono solo come segnale).
 # Nei log compaiono solo gli id delle azioni, mai i testi.
 name: Azioni approvate
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "20 5 * * *"  # riserva: 6:20 / 7:20 ora di Roma
   workflow_dispatch:
 
 concurrency:
@@ -17,7 +20,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   GH_TOKEN: ${{ secrets.MEDIA_TOKEN }}
@@ -28,7 +31,7 @@ env:
 jobs:
   azioni:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 140
     steps:
       - name: Progetto privato (solo la cartella azioni)
         uses: actions/checkout@v4
@@ -75,23 +78,67 @@ jobs:
             for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
           fi
 
-      - name: Avvio della routine (una release per richiesta)
+      - name: Avvio della routine (una pre-release per richiesta, in questo repo)
+        env:
+          RELEASE_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'EOF'
           import json, os, subprocess, urllib.request
           B, T = os.environ["DASHBOARD"], os.environ["REVISIONE_TOKEN"]
+          attesa = []
           for a in json.load(open("/tmp/nuove.json")):
               tag = f"azione-{a['id']}-{a['giro']}"
-              subprocess.run(["gh", "release", "create", tag, "-R", os.environ["MEDIA_REPO"], "--prerelease",
-                              "--title", tag, "--notes", f"Richiesta: {a['richiesta']} (azione {a['id']}, giro {a['giro']})"], check=True)
+              subprocess.run(["gh", "release", "create", tag, "-R", os.environ["GITHUB_REPOSITORY"], "--prerelease",
+                              "--title", tag, "--notes", f"Richiesta: {a['richiesta']} (azione {a['id']}, giro {a['giro']})"],
+                             check=True, env={**os.environ, "GH_TOKEN": os.environ["RELEASE_TOKEN"]})
               stato = "in_pubblicazione" if a["richiesta"] == "pubblica" else "in_lavorazione"
               r = urllib.request.Request(B + "/api/azioni/stato", method="POST", data=json.dumps({"id": a["id"], "stato": stato, "giro": a["giro"]}).encode(),
                   headers={"authorization": "Bearer " + T, "content-type": "application/json", "user-agent": "azioni-actions/1.0"})
               urllib.request.urlopen(r, timeout=60); print(tag, "→", stato)
+              attesa.append({"id": a["id"], "giro": a["giro"]})
+          json.dump(attesa, open("/tmp/attesa.json", "w"))
+          EOF
+
+      - name: Attesa della routine e consegna
+        run: |
+          python3 - <<'EOF'
+          import json, os, subprocess, time, urllib.request
+          B, T = os.environ["DASHBOARD"], os.environ["REVISIONE_TOKEN"]
+          def stato(corpo):
+              r = urllib.request.Request(B + "/api/azioni/stato", method="POST", data=json.dumps(corpo).encode(),
+                  headers={"authorization": "Bearer " + T, "content-type": "application/json", "user-agent": "azioni-actions/1.0"})
+              urllib.request.urlopen(r, timeout=60)
+          attesa = {a["id"]: a["giro"] for a in json.load(open("/tmp/attesa.json"))}
+          # Controllo ogni 30 secondi, al massimo 2 ore
+          for giro_attesa in range(1, 241):
+              if not attesa: break
+              time.sleep(30)
+              subprocess.run("git -C media fetch -q origin main && git -C media checkout -q -B main origin/main", shell=True, check=True)
+              for id, giro in list(attesa.items()):
+                  f = f"media/azioni/{id}/risultato.json"
+                  if not os.path.exists(f): continue
+                  r = json.load(open(f))
+                  if int(r.get("giro", 0)) < giro: continue
+                  stato({"id": id, "stato": r["stato"], "giro": giro, "risultato": r})
+                  open(f"media/azioni/{id}/consegnato", "w").write(str(giro))
+                  subprocess.run(f"cd media && git add azioni/{id}/consegnato && git commit -q -m 'azioni: consegna {id}' && "
+                                 "for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 5; done", shell=True, check=True)
+                  print(id, "consegnato:", r["stato"], "al minuto", giro_attesa // 2)
+                  del attesa[id]
+          # Senza risposta: errore leggibile in dashboard ("Invia e riprova" la rimette in coda); se il risultato arriva
+          # dopo, lo consegna il primo giro successivo (passo 1)
+          for id, giro in attesa.items():
+              stato({"id": id, "stato": "errore", "giro": giro, "risultato": {"messaggio": "La routine non ha risposto entro 2 ore: premi Invia e riprova."}})
+              print(id, "nessuna risposta in 2 ore")
           EOF
 
       - name: Pulizia delle release vecchie
+        if: always()
         run: |
+          # qui (segnali dal 30/10/2026, token del flusso) e in video-guide-media (segnali di prima)
+          GH_TOKEN="${{ github.token }}" gh release list -R "$GITHUB_REPOSITORY" --limit 100 --json tagName,createdAt \
+            --jq '.[] | select(.tagName | startswith("azione-")) | select((now - (.createdAt | fromdateiso8601)) > 7200) | .tagName' |
+          while read -r t; do GH_TOKEN="${{ github.token }}" gh release delete "$t" -R "$GITHUB_REPOSITORY" --yes --cleanup-tag; done
           gh release list -R "$MEDIA_REPO" --limit 100 --json tagName,createdAt \
             --jq '.[] | select(.tagName | startswith("azione-")) | select((now - (.createdAt | fromdateiso8601)) > 7200) | .tagName' |
           while read -r t; do gh release delete "$t" -R "$MEDIA_REPO" --yes --cleanup-tag; done
