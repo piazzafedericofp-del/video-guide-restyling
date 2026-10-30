@@ -1,6 +1,8 @@
 # Posa del corpo delle clip dei Reel (audit del 29/10/2026, skill reel-social): MediaPipe su ogni clip della release
 # "clip-social" che non ce l'ha ancora, salvata in media/social/posa/<clip>.json. La routine la usa per agganciare le
 # grafiche al corpo, controlla-reel.py per vedere gesto fuori zona e pulsante sulle mani. Nei log solo conteggi.
+# Dal 30/10/2026 scrive anche la voce di media/social/clip-qualita.json delle clip che non ce l'hanno, con i numeri del
+# render (controlla-reel.py --misura): senza, la routine non conosceva lo zoom massimo e il render fermava il Reel.
 name: Posa delle clip
 
 # Si lancia a mano o da una sessione dopo aver caricato clip nuove; il render (social.yml) la calcola da solo se manca.
@@ -38,7 +40,9 @@ jobs:
           repository: piazzafedericofp-del/video-guide-media
           token: ${{ secrets.MEDIA_TOKEN }}
           path: media
-          sparse-checkout: social/posa
+          sparse-checkout: |
+            social/posa
+            social/clip-qualita.json
 
       - name: Codice
         uses: actions/checkout@v4
@@ -53,7 +57,7 @@ jobs:
         run: |
           # libgl1, libglib2.0-0 (OpenCV) e libegl1, libgles2 (MediaPipe crea il rilevatore con EGL anche senza scheda grafica)
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libgl1 libglib2.0-0 libegl1 libgles2 >/dev/null
-          pip install -q mediapipe numpy
+          pip install -q mediapipe numpy pillow
           curl -sSfL "$MODELLO_URL" -o /tmp/posa.task
           # Prova su mezzo secondo di nero: se il rilevatore non parte ci si ferma qui, senza scaricare le clip
           ffmpeg -v error -f lavfi -i color=black:s=1080x1920:d=0.5 -pix_fmt yuv420p /tmp/prova.mp4
@@ -69,29 +73,44 @@ jobs:
           cd media
           git config user.name "posa-social"; git config user.email "render@users.noreply.github.com"
           salva() {
-            git add social/posa
+            git add social/posa social/clip-qualita.json
             git diff --cached --quiet && return 0
-            git commit -q -m "social: posa di $1 clip"
+            git commit -q -m "social: posa e qualità di $1 clip"
             for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
           }
           cd ..
-          FATTE=0; ERRORI=0; NUOVE=0
+          FATTE=0; ERRORI=0; NUOVE=0; MISURATE=0
+          Q=media/social/clip-qualita.json
+          [ -f "$Q" ] || echo -n '{"clip": {}}' > "$Q"
           for NOME in $(gh release view clip-social -R "$MEDIA_REPO" --json assets -q '.assets[].name' | sort -u); do
             ID="${NOME%.*}"
             [ -z "$SOLO" ] || [[ " $SOLO " == *" $ID "* ]] || continue
             OUT="media/social/posa/$ID.json"
-            [ "$RIFAI" != "true" ] && [ -f "$OUT" ] && continue
+            SERVE_POSA=1; [ "$RIFAI" != "true" ] && [ -f "$OUT" ] && SERVE_POSA=0
+            # Voce di qualità solo se manca: quelle scritte o corrette a mano non si toccano mai
+            SERVE_Q=1; python3 -c 'import json, sys; sys.exit(0 if sys.argv[2] in json.load(open(sys.argv[1]))["clip"] else 1)' "$Q" "$ID" && SERVE_Q=0
+            [ "$SERVE_POSA$SERVE_Q" = "00" ] && continue
             gh release download clip-social -R "$MEDIA_REPO" -p "$NOME" -D girato --clobber < /dev/null || { ERRORI=$((ERRORI+1)); continue; }
-            if python3 codice/scripts/social/posa.py "girato/$NOME" /tmp/posa.task "$OUT" > /dev/null 2> /tmp/errore.txt; then
-              FATTE=$((FATTE+1)); NUOVE=$((NUOVE+1))
-            else
-              # Solo le ultime righe dell'errore tecnico, la prima volta (nessun contenuto: la clip non compare)
-              [ "$ERRORI" -gt 0 ] || tail -3 /tmp/errore.txt
-              ERRORI=$((ERRORI+1))
+            if [ "$SERVE_POSA" = 1 ]; then
+              if python3 codice/scripts/social/posa.py "girato/$NOME" /tmp/posa.task "$OUT" > /dev/null 2> /tmp/errore.txt; then
+                FATTE=$((FATTE+1)); NUOVE=$((NUOVE+1))
+              else
+                # Solo le ultime righe dell'errore tecnico, la prima volta (nessun contenuto: la clip non compare)
+                [ "$ERRORI" -gt 0 ] || tail -3 /tmp/errore.txt
+                ERRORI=$((ERRORI+1))
+              fi
+            fi
+            if [ "$SERVE_Q" = 1 ]; then
+              if python3 codice/scripts/social/controlla-reel.py --misura "girato/$NOME" --scrivi "$Q" > /dev/null 2> /tmp/errore.txt; then
+                MISURATE=$((MISURATE+1)); NUOVE=$((NUOVE+1))
+              else
+                [ "$ERRORI" -gt 0 ] || tail -3 /tmp/errore.txt
+                ERRORI=$((ERRORI+1))
+              fi
             fi
             rm -f "girato/$NOME"
             if [ "$NUOVE" -ge 20 ]; then (cd media && salva "$NUOVE"); NUOVE=0; fi
           done
           (cd media && salva "$NUOVE")
-          echo "Pose calcolate: $FATTE, non riuscite: $ERRORI"
+          echo "Pose calcolate: $FATTE, qualità misurate: $MISURATE, non riuscite: $ERRORI"
           [ "$ERRORI" -eq 0 ]

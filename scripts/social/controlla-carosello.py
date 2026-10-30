@@ -14,6 +14,7 @@ Legge <cartella>/misure.json (testi misurati nella pagina) e le slide JPEG, poi 
 """
 
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -46,14 +47,26 @@ def contrasto(a, b):
     return (la + 0.05) / (lb + 0.05)
 
 
+def dilata(maschera, r):
+    """Allarga la maschera di r pixel per lato (quadrato), senza scipy."""
+    h, w = maschera.shape
+    p = np.pad(maschera, r)
+    larga = np.zeros_like(maschera)
+    for dy in range(2 * r + 1):
+        for dx in range(2 * r + 1):
+            larga |= p[dy:dy + h, dx:dx + w]
+    return larga
+
+
 def sfondo(img, voce, colore_testo):
     x0, y0 = max(int(voce["x"]), 0), max(int(voce["y"]), 0)
     x1, y1 = min(int(voce["x"] + voce["w"]), img.shape[1]), min(int(voce["y"] + voce["h"]), img.shape[0])
-    zona = img[y0:y1, x0:x1].reshape(-1, 3).astype(float)
-    if len(zona) == 0:
+    zona = img[y0:y1, x0:x1].astype(float)
+    if zona.size == 0:
         return None
-    lontani = zona[np.linalg.norm(zona - colore_testo, axis=1) > 80]
-    if len(lontani) < len(zona) * 0.2:
+    lettere = np.linalg.norm(zona - colore_testo, axis=2) <= 80
+    lontani = zona[~lettere]
+    if len(lontani) < lettere.size * 0.2:
         return None  # quasi solo lettere: sfondo non stimabile
     # Sfondo = colore più frequente (a gruppi di 8 livelli): i pixel sfumati ai bordi delle
     # lettere sono pochi e tutti diversi, lo sfondo pieno domina. Sopra una foto nessun
@@ -66,8 +79,14 @@ def sfondo(img, voce, colore_testo):
     vicini = lontani[np.linalg.norm(lontani - centro, axis=1) <= 14]
     if len(vicini) >= len(lontani) * 0.3:
         return vicini.mean(axis=0)
-    distanze = np.linalg.norm(lontani - colore_testo, axis=1)
-    return lontani[distanze <= np.percentile(distanze, 25)].mean(axis=0)
+    # Caso peggiore solo a 2 px dalle lettere: i loro bordi sfumati non sono sfondo. Sopra una foto finivano nel quartile
+    # più chiaro e davano «Immagine IA» (navy al 70%) a 4,1:1 contro il 5,9:1 minimo possibile: f9d45c8e bocciato
+    # due volte e copertina ritagliata per niente (30/10/2026)
+    puliti = zona[~dilata(lettere, 2)]
+    if len(puliti) < len(lontani) * 0.3:
+        puliti = lontani
+    distanze = np.linalg.norm(puliti - colore_testo, axis=1)
+    return puliti[distanze <= np.percentile(distanze, 25)].mean(axis=0)
 
 
 def sovrapposti(a, b, tolleranza=2):
@@ -103,7 +122,8 @@ def main():
             soglia = 3.0 if px >= 48 else 4.5
             r = contrasto(c_testo, c_sfondo)
             if r < soglia:
-                print(f"✗ {nome}: contrasto {r:.1f}:1 (minimo {soglia}:1)")
+                # per difetto: 4,49 non deve comparire come "4.5:1 (minimo 4.5:1)" (slide 2 di f9d45c8e, 29/10/2026)
+                print(f"✗ {nome}: contrasto {math.floor(r * 10) / 10:.1f}:1 (minimo {soglia}:1)")
                 problemi += 1
         vs = slide["voci"]
         for i in range(len(vs)):

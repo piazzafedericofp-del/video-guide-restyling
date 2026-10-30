@@ -10,8 +10,11 @@ on:
         description: "id del post (vuoto = tutti quelli senza storie)"
         required: false
 
+# Gruppo suo, non "social": GitHub tiene in attesa un solo flusso per gruppo e annulla quello già in attesa quando ne
+# arriva un altro. Il 29/10/2026 un render social ha annullato queste storie (avviate a mano, nessuno le rilancia).
+# Qui non si scrive nel progetto privato, quindi nessun conflitto con i render.
 concurrency:
-  group: social
+  group: storie
   cancel-in-progress: false
 
 permissions:

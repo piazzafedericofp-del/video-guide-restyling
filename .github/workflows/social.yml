@@ -249,7 +249,10 @@ jobs:
           cd media
           cp ../codice/out/foglio.jpg "social/lavori/$ID/foglio.jpg"
           echo -n consegnato > "social/lavori/$ID/stato"; rm -f "social/lavori/$ID/errore.txt" "social/lavori/$ID/tentativi_render"
-          git add "social/lavori/$ID" social/posa; git commit -q -m "social $ID: consegnato"
+          # social/posa solo se esiste: un carosello consegnato quando la cartella non c'era ancora fermava il flusso dopo la
+          # consegna ("pathspec did not match", 6bb9f960, 29/10/2026) e il post veniva rifatto e riconsegnato
+          git add "social/lavori/$ID"; if [ -d social/posa ]; then git add social/posa; fi
+          git commit -q -m "social $ID: consegnato"
           for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
 
       # Due casi, per non far girare a vuoto la routine (24/10/2026):
