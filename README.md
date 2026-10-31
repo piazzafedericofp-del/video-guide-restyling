@@ -17,6 +17,8 @@ Licenza: tutti i diritti riservati. Il font Inter è distribuito con licenza SIL
   torna in coda. Un guasto tecnico si riprova una volta e poi si ferma.
 - `attesa.yml`: lo avvia la Sveglia quando sveglia una routine; aspetta che la routine cominci e finisca (controllo ogni
   2 minuti, al massimo 30 + 90 minuti), poi rilancia la Sveglia per il render e il lavoro successivo.
+- `richiamo.yml` (31/10/2026): lo avvia la Sveglia quando una pausa ferma un lavoro pronto (30 minuti dopo un render
+  fallito, 20 minuti tra due segnali alla stessa routine); aspetta la fine della pausa e la riavvia. Uno solo alla volta.
 - Lezioni con più riprese: `render.yml` prende solo il pezzo usato di ogni ripresa e `prepara-girato.sh` lo taglia, lo
   porta a 4K 30 fps e corregge il colore in un passaggio (`girato/riprese.txt`). Copertine IA dei caroselli: `social.yml`,
   sorgente `ia`, generate dalla dashboard con Workers AI.

@@ -3,10 +3,12 @@
 da preparare, e solo allora sveglia la routine con una release "turno-social-…" o "turno-lezione-…" nel progetto
 privato (l'evento release.published fa partire la routine). Applica le stesse regole del §1 delle istruzioni.
 Inoltre: avvia i render quando ci sono dati pronti e nessun render in corso, rimette in coda gli stati fermi,
-cancella i segnali vecchi. Stampa solo id e stati, mai contenuti (il repo del codice è pubblico).
+cancella i segnali vecchi. Quando una pausa (render fallito da poco, segnale già mandato) ferma un lavoro pronto, si fa
+richiamare allo scadere da richiamo.yml. Stampa solo id e stati, mai contenuti (il repo del codice è pubblico).
 Uso: python3 sveglia.py <cartella media> [--prova]   (--prova: decide e stampa, ma non cambia niente)"""
 import datetime as dt
 import json
+import math
 import os
 import subprocess
 import sys
@@ -21,11 +23,14 @@ CODICE = os.environ.get("GITHUB_REPOSITORY", "piazzafedericofp-del/video-guide-r
 # (proposta approvata o brief), quindi si prepara tutto, dal più vicino all'uscita
 MAX_NUOVI_GIORNO = 4    # contenuti nuovi preparati al giorno: l'arretrato si spalma e non consuma in un colpo il limite di 5 ore
 PAUSA_SEGNALE = 20      # minuti: niente secondo segnale dello stesso tipo prima di così
+PAUSA_FALLITO = 30      # minuti: dopo un render fallito il successivo parte solo dopo così
 FERMO_RENDER = 6 * 60   # minuti in "in_render" senza un render in corso → di nuovo "dati_pronti"
 FERMO_PREP = 3 * 60     # minuti in "in_preparazione" → la routine si è interrotta
 ADESSO = dt.datetime.now(dt.timezone.utc)
 OGGI = ADESSO.date()
 cambiati = []
+pausa_render = {}  # flusso → minuti che mancano alla fine della pausa dopo un render fallito
+richiami = []      # minuti alla fine delle pause che fermano un lavoro pronto (vedi richiamo.yml in fondo)
 
 
 def gh(*args, codice=False):
@@ -44,8 +49,8 @@ def minuti_da_ultima_modifica(percorso):
 
 
 def render_in_corso(flusso):
-    """True se un render è in corso o in coda, oppure se l'ultimo è fallito da meno di 30 minuti (niente giri a catena
-    su un errore che si ripete: riprova dopo)."""
+    """True se un render è in corso o in coda, oppure se l'ultimo è fallito da meno di PAUSA_FALLITO minuti (niente giri
+    a catena su un errore che si ripete: riprova allo scadere della pausa)."""
     runs = json.loads(gh("run", "list", "-R", CODICE, "-w", flusso, "-L", "10", "--json", "status,conclusion,updatedAt", codice=True) or "[]")
     if any(r["status"] != "completed" for r in runs):
         return True
@@ -55,8 +60,10 @@ def render_in_corso(flusso):
         return True
     if runs and runs[0]["conclusion"] == "failure":
         fine = dt.datetime.fromisoformat(runs[0]["updatedAt"].replace("Z", "+00:00"))
-        if (ADESSO - fine).total_seconds() < 30 * 60:
+        mancano = PAUSA_FALLITO - (ADESSO - fine).total_seconds() / 60
+        if mancano > 0:
             print(f"{flusso}: ultimo render fallito da poco, non lo riavvio ora")
+            pausa_render[flusso] = mancano
             return True
     return False
 
@@ -172,6 +179,8 @@ for flusso, pronti, attivo in (("social.yml", any(s == "dati_pronti" for s in st
         print(f"avvio {flusso} (dati pronti, nessun render in corso)")
         if not PROVA:
             gh("workflow", "run", flusso, "-R", CODICE, codice=True)
+    elif pronti and flusso in pausa_render:
+        richiami.append(pausa_render[flusso])
 
 # ---------------- Segnali alle routine ----------------
 release = json.loads(gh("release", "list", "-R", MEDIA, "--limit", "100", "--json", "tagName,createdAt") or "[]")
@@ -184,7 +193,9 @@ def eta(r):
 for tipo, sveglia in (("social", sveglia_social), ("lezione", sveglia_lezioni)):
     recenti = [] if DOPO_ROUTINE else [r for r in release if r["tagName"].startswith(f"turno-{tipo}-") and eta(r) < PAUSA_SEGNALE]
     if sveglia and recenti:
-        print(f"{tipo}: segnale già mandato {int(eta(recenti[0]))} minuti fa, aspetto")
+        ultimo = min(eta(r) for r in recenti)
+        print(f"{tipo}: segnale già mandato {int(ultimo)} minuti fa, aspetto")
+        richiami.append(PAUSA_SEGNALE - ultimo)
     elif sveglia:
         tag = f"turno-{tipo}-{ADESSO:%Y%m%d-%H%M}"
         print(f"{tipo}: sveglio la routine ({tag})")
@@ -205,3 +216,13 @@ for tipo, sveglia in (("social", sveglia_social), ("lezione", sveglia_lezioni)):
 for r in release:
     if r["tagName"].startswith("turno-") and eta(r) > 120 and not PROVA:
         gh("release", "delete", r["tagName"], "-R", MEDIA, "--yes", "--cleanup-tag")
+
+# ---------------- Richiamo allo scadere della pausa ----------------
+# Un lavoro pronto fermo solo per una pausa: allo scadere nessun evento richiamava la Sveglia (dal 27 al 31/10/2026
+# 16 fermi oltre 40 minuti, 47 ore in tutto, finché non passava il timer della dashboard o Federico). richiamo.yml
+# aspetta la fine della pausa più vicina e la riavvia; ne resta in attesa uno solo, l'ultimo.
+if richiami:
+    minuti = math.ceil(min(richiami)) + 1
+    print(f"richiamo la Sveglia tra {minuti} minuti (fine della pausa)")
+    if not PROVA:
+        gh("workflow", "run", "richiamo.yml", "-R", CODICE, "-f", f"minuti={minuti}", codice=True)

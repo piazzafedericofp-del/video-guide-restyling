@@ -1,0 +1,38 @@
+# Richiamo della Sveglia (31/10/2026). La Sveglia rimanda un lavoro pronto per due pause: 30 minuti dopo un render
+# fallito (niente giri a catena) e 20 minuti tra due segnali alla stessa routine. Allo scadere nessun evento la
+# richiamava: dal 27 al 31/10 il cloud è rimasto fermo 16 volte oltre 40 minuti (47 ore in tutto), finché non passava
+# il timer della dashboard o Federico. Ora, quando una pausa ferma un lavoro pronto, la Sveglia avvia questo flusso,
+# che aspetta la fine della pausa e la riavvia. Uno solo alla volta: il nuovo prende il posto di quello in attesa.
+# Gira gratis (repo pubblico) e non consuma token Claude.
+name: Richiamo Sveglia
+
+on:
+  workflow_dispatch:
+    inputs:
+      minuti:
+        description: "minuti da aspettare prima di riavviare la Sveglia (al massimo 40)"
+        required: true
+
+concurrency:
+  group: richiamo
+  cancel-in-progress: true
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  richiamo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Aspetta la fine della pausa e sveglia
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MINUTI: ${{ inputs.minuti }}
+        run: |
+          case "$MINUTI" in ''|*[!0-9]*) echo "minuti non validi"; exit 1;; esac
+          [ "$MINUTI" -le 40 ] || MINUTI=40
+          echo "richiamo tra $MINUTI minuti"
+          sleep $(( MINUTI * 60 ))
+          gh workflow run sveglia.yml -R "${{ github.repository }}"
