@@ -2,8 +2,9 @@
 # Lo avvia solo la dashboard (src/blog.ts), quando c'è lavoro: un articolo arrivato alla sua data, una modifica o
 # un "Pubblica" di Federico. Nessun timer: gira gratis (repo pubblico) e non consuma token Claude.
 # 1. legge la coda dalla dashboard e scrive video-guide-media/blog/<id>/lavoro.json;
-# 2. "pubblica": prova il merge del ramo claude/blog-<id> in main con l'API di GitHub (zero token); se il token
-#    non ha il permesso, lo chiede alla routine;
+# 2. "pubblica": merge del ramo claude/blog-<id> in main con l'API di GitHub (zero token) e il token SITO_TOKEN
+#    (solo federicopiazza.com, Contents). Se non riesce: errore con "pubblica" nel risultato, e Riprova ripubblica.
+#    Mai la routine: l'ambiente cloud blocca il push su main (Production Deploy, 02/11/2026, prima uscita del blog);
 # 3. "scrivi" / "modifica": pubblica qui una release "blog-<id>-<giro>" (in questo repo, così non sveglia le
 #    routine social e lezioni, che ascoltano le release di video-guide-media): è l'evento della routine "Blog - articoli";
 # 4. aspetta risultato.json della routine (al massimo 2 ore) e lo consegna alla dashboard; poi cancella le release.
@@ -73,9 +74,10 @@ jobs:
               r = urllib.request.Request(B + "/api/blog/stato", method="POST", data=json.dumps(corpo).encode(),
                   headers={"authorization": "Bearer " + T, "content-type": "application/json", "user-agent": "blog-actions/1.0"})
               urllib.request.urlopen(r, timeout=60); print(id, "→", s)
+          # Il sito si tocca solo con SITO_TOKEN: MEDIA_TOKEN vede solo video-guide-media (404 sul merge, 02/11/2026)
           def gh(metodo, percorso, corpo=None):
               r = urllib.request.Request("https://api.github.com" + percorso, method=metodo, data=json.dumps(corpo).encode() if corpo else None,
-                  headers={"authorization": "Bearer " + os.environ["GH_TOKEN"], "accept": "application/vnd.github+json", "user-agent": "blog-actions/1.0"})
+                  headers={"authorization": "Bearer " + os.environ["SITO_TOKEN"], "accept": "application/vnd.github+json", "user-agent": "blog-actions/1.0"})
               try:
                   with urllib.request.urlopen(r, timeout=60) as x: return x.status, json.loads(x.read() or b"{}")
               except urllib.error.HTTPError as e: return e.code, {}
@@ -92,7 +94,11 @@ jobs:
                   if codice == 409:
                       stato(a["id"], "errore", a["giro"], {"messaggio": "Il ramo è in conflitto con il sito attuale: premi Riprova e lo riallineo."})
                       continue
-                  print(a["id"], "merge via API non permesso (", codice, "): lo fa la routine")
+                  perche = ("il flusso non ha il permesso di scrivere sul sito (token SITO_TOKEN mancante o scaduto)"
+                            if codice in (401, 403, 404) else f"GitHub non ha risposto come doveva (codice {codice})")
+                  stato(a["id"], "errore", a["giro"], {"pubblica": True, "messaggio":
+                        f"Non sono riuscito a pubblicare sul sito: {perche}. Il ramo è intatto: premi Riprova e lo pubblico."})
+                  continue
               tag = f"blog-{a['id']}-{a['giro']}"
               subprocess.run(["gh", "release", "create", tag, "-R", os.environ["GITHUB_REPOSITORY"], "--title", tag,
                               "--notes", f"Richiesta: {a['richiesta']} (articolo {a['id']}, giro {a['giro']})"],
@@ -103,6 +109,7 @@ jobs:
           EOF
         env:
           RELEASE_TOKEN: ${{ github.token }}
+          SITO_TOKEN: ${{ secrets.SITO_TOKEN }}
 
       # ffmpeg ritaglia l'immagine dell'articolo: il runner non lo ha (29/10/2026 il flusso è caduto e l'articolo
       # consegnato dalla routine è rimasto "in scrittura"). Si installa mentre la routine parte, solo se c'è da aspettarla
