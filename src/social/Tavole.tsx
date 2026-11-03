@@ -22,6 +22,9 @@ export type SlideTavola = {
   // Instagram: si anima solo il passaggio che è un movimento (da → a), poi resta fermo "ferma" secondi
   anima?: { da: number; a: number; ferma: number };
   vista?: Vista;
+  // Copie fatte dalla routine (03/11/2026): misura minima delle scritte sulla slide in px (31 ≈ 11 pt sul telefono).
+  // Le scritte più piccole crescono in base alla scala vera del disegno; senza il campo il disegno resta com'è (ernia).
+  scritte?: number;
 };
 
 export const durataTavola = (s: { tipo: string }) => (s.tipo === "tavola" && (s as SlideTavola).anima ? (s as SlideTavola).anima!.a - (s as SlideTavola).anima!.da + (s as SlideTavola).anima!.ferma : 0);
@@ -145,6 +148,11 @@ export const useDisegni = (files: string[], tempi: number[], opz: { controllo?: 
       const scala = Math.min(box.clientWidth / vw, box.clientHeight / vh);
       svg.setAttribute("width", String(vw * scala));
       svg.setAttribute("height", String(vh * scala));
+      // misura minima delle scritte sulla slide: font-size × scala del disegno, mai una misura fissa nel disegno
+      const minimo = Number(box.dataset.scritteMin);
+      if (minimo > 0) svg.querySelectorAll<SVGTextElement>("text").forEach((t) => {
+        if (parseFloat(getComputedStyle(t).fontSize) * scala < minimo) t.style.setProperty("font-size", `${(minimo / scala).toFixed(2)}px`, "important");
+      });
       svg.pauseAnimations();
       svg.setCurrentTime(tempi[i]);
     });

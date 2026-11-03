@@ -114,8 +114,8 @@ const Colonna: React.FC<{ alto?: number; basso?: number; children: React.ReactNo
 );
 
 // Riquadro di un disegno: l'SVG lo inserisce e lo adatta useDisegni (data-disegno), "mini" toglie le scritte
-const Disegno: React.FC<{ html?: string; mini?: boolean; inquadratura?: string; lente?: string; style?: React.CSSProperties }> = ({ html, mini, inquadratura, lente, style }) => (
-  <div data-disegno data-inquadratura={inquadratura} data-lente={lente} className={mini ? "mini" : undefined}
+const Disegno: React.FC<{ html?: string; mini?: boolean; inquadratura?: string; lente?: string; scritte?: number; style?: React.CSSProperties }> = ({ html, mini, inquadratura, lente, scritte, style }) => (
+  <div data-disegno data-inquadratura={inquadratura} data-lente={lente} data-scritte-min={scritte} className={mini ? "mini" : undefined}
     style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 0, ...style }}
     dangerouslySetInnerHTML={html ? { __html: html } : undefined} />
 );
@@ -213,7 +213,7 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
         </div>
         {s.frase ? <div style={{ flex: "none", color: t.corpo, fontSize: 36, fontWeight: 500, lineHeight: 1.32, marginTop: 14, ...RIGHE }}>{perRighe(s.frase)}</div> : null}
         {s.fonte ? <div style={{ flex: "none", color: t.debole, fontSize: 28, fontWeight: 500, marginTop: 8 }}>Fonte: {s.fonte}</div> : null}
-        <Disegno html={svg(0)} style={{ flex: "1 1 0", marginTop: 10 }} />
+        <Disegno html={svg(0)} scritte={s.scritte} style={{ flex: "1 1 0", marginTop: 10 }} />
       </Colonna>
     ));
   }
