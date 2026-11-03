@@ -8,7 +8,9 @@ Punti: naso, occhio, orecchio, bocca, spalla, gomito, polso, indice, anca, ginoc
 Uso (stampa il JSON da mettere nei dati; avvisi su stderr):
   grafiche-posa.py <posa.json> punti <secondo della CLIP>                            tutti i punti e il riquadro del viso
   grafiche-posa.py <posa.json> <dati.json> segnale <punto> <da> <a>                  cerchio (posizione media nel tratto)
-  grafiche-posa.py <posa.json> <dati.json> freccia <punto> <da> <a>                  percorso del punto, per la freccia
+  grafiche-posa.py <posa.json> <dati.json> freccia <punto> <da> <a> [--dritta]      percorso del punto, per la freccia
+      (--dritta: punti sulla linea dall'inizio alla fine del gesto, solo in avanti: per i gesti piccoli, dove il rumore
+      della posa fa girare la punta; Federico 30/10/2026 sul bacino di 98c9b323: "la freccia traballa")
   grafiche-posa.py <posa.json> <dati.json> asse <punto,punto,punto> <da> <a>         asse del corpo, con lo scarto dalla linea
   grafiche-posa.py <posa.json> <dati.json> battute <punto> <x|y> <max|min> <da> <a>  secondi in cui ogni ripetizione arriva in fondo
 """
@@ -102,7 +104,17 @@ if __name__ == "__main__":
         print(f"percorso {lungo:.0f} px, dall'inizio alla fine {dritto:.0f} px (pixel della clip)", file=sys.stderr)
         if dritto < 0.6 * lungo:
             print("! il gesto torna indietro: la freccia va su metà ripetizione (da partenza a punto massimo)", file=sys.stderr)
-        print(json.dumps({"da": da, "a": a, "lunghezzaMin": 150, "punti": [{"t": t, "x": round(p[0]), "y": round(p[1])} for t, p in buoni]}))
+        cifre = 1 if "--dritta" in sys.argv else None
+        if cifre:
+            # Estremi mediati su 3 campioni, ogni punto portato sulla linea e mai indietro rispetto al precedente
+            (x0, y0), (x1, y1) = [(sum(p[0] for _, p in g) / len(g), sum(p[1] for _, p in g) / len(g)) for g in (buoni[:3], buoni[-3:])]
+            L = math.hypot(x1 - x0, y1 - y0) or 1
+            avanti, dritti = 0.0, []
+            for t, p in buoni:
+                avanti = min(L, max(avanti, ((p[0] - x0) * (x1 - x0) + (p[1] - y0) * (y1 - y0)) / L))
+                dritti.append((t, (x0 + (x1 - x0) * avanti / L, y0 + (y1 - y0) * avanti / L)))
+            buoni = dritti
+        print(json.dumps({"da": da, "a": a, "lunghezzaMin": 150, "punti": [{"t": t, "x": round(p[0], cifre), "y": round(p[1], cifre)} for t, p in buoni]}))
     elif cosa == "asse":
         nomi = nome.split(",")
         medi = []

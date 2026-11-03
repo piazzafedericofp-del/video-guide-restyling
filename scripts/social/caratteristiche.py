@@ -133,6 +133,16 @@ def calcola(dati, lavoro, uscite=None, regole=""):
     c |= _reel(p, dati, lavoro) if formato == "reel" else _carosello(p, uscite) if formato == "carosello" else {}
     if dati.get("esperimento"):
         c["esperimento"] = dati["esperimento"]
+    # Ciclo di revisione (Reel dal 03/11/2026, revisione-reel.py chiudi): stessa forma del ciclo degli articoli, così la
+    # revisione del mese confronta i contenuti passati dal revisore con quelli di prima. Senza "ciclo" il contenuto è di prima
+    rv = dati.get("revisione")
+    if isinstance(rv, dict) and rv.get("giri"):
+        conta = lambda x: len(x) if isinstance(x, list) else int(x or 0)
+        restano = rv.get("restano") or {}
+        c["ciclo"] = {"giri": int(rv["giri"]), "superato": str(rv.get("esito", "")).startswith("superata"),
+                      "restano": {k: int(restano.get(k) or 0) for k in ("blocca", "importante", "minore")},
+                      "corrette": conta(rv.get("corrette")), "rifiutate": conta(rv.get("rifiutate")),
+                      "domande_a_federico": conta(rv.get("domande_federico"))}
     return c
 
 

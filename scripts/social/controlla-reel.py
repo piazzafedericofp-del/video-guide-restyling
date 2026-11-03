@@ -17,6 +17,10 @@ Righe "✗" = da correggere (il render si ferma e la routine corregge una volta)
    della media; con `accettato` (il motivo, solo con l'ok di Federico) vale il loro limite anche se la misura è più bassa.
 5. Con --posa (posa.py), avvisi: viso sotto un testo, gesto fuori dalla zona visibile o sotto il riquadro del passo,
    pulsante dell'invito sopra mani o piedi (audit del 29/10: gomito, stacco su una gamba, anca, lento avanti).
+6. Frecce che traballano (Federico, 30/10/2026, sul bacino di 98c9b323: "la freccia che muove il bacino traballa"): la
+   direzione della freccia, fotogramma per fotogramma come la disegna il modello, non deve girare avanti e indietro.
+   Si conta l'andirivieni in gradi (giri totali meno il giro netto): il bacino bocciato faceva 82°, le frecce approvate
+   fino al 03/11 al massimo 29°. Da 45° è una ✗, da 30° un avviso.
 """
 import json
 import math
@@ -361,6 +365,52 @@ if fp and Path(fp).exists():
     if len(sopra) > 0.3 * max(1, len(tt)):
         avvisi.append(f"invito: il pulsante a y {yi} copre mani o piedi nel {100 * len(sopra) // max(1, len(tt))}% del finale: "
                       "spostalo in alto (invito.y ~300, se lì non c'è il viso)")
+
+# ─── 6. Frecce che traballano ───
+# Stessa geometria di FrecciaMisurata (ReelMomenti.tsx): freccia dritta dal primo punto al punto di adesso, allungata
+# all'indietro fino a lunghezzaMin, disegnata da 12 px. Lo zoom del piano non cambia gli angoli, solo le lunghezze
+def interpola(xs, t):
+    if t <= xs[0][0]:
+        return xs[0][1]
+    for (t0, v0), (t1, v1) in zip(xs, xs[1:]):
+        if t0 <= t <= t1:
+            return v0 + (v1 - v0) * (t - t0) / max(1e-9, t1 - t0)
+    return xs[-1][1]
+
+
+for n, fr in enumerate(p.get("frecce") or [], 1):
+    pt = fr["punti"]
+    if len(pt) < 2:
+        continue
+    angoli = []
+    for j in range(int((fr["a"] - fr["da"]) * 30) + 1):
+        t = fr["da"] + j / 30
+        i = max([m for m, q in enumerate(piani) if q["da"] <= t + 1e-6] or [0])
+        z = (piani[i]["z0"] + (piani[i]["z1"] - piani[i]["z0"]) * min(1, max(0, (t - piani[i]["da"]) / max(0.01, fine[i] - piani[i]["da"])))) * k
+        ax, ay = interpola([(q["t"], q["x"]) for q in pt], t), interpola([(q["t"], q["y"]) for q in pt], t)
+        prima = [(q["x"], q["y"]) for q in pt if q["t"] < t] + [(ax, ay)]
+        if len(prima) < 2:
+            continue
+        percorso = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(prima, prima[1:])) * z
+        dx, dy = (ax - pt[0]["x"]) * z, (ay - pt[0]["y"]) * z
+        pieno = min(1, (t - fr["da"]) / max(0.01, pt[-1]["t"] - fr["da"]))
+        allungo = max(0, fr.get("lunghezzaMin", 0) - percorso) * pieno
+        if math.hypot(dx, dy) < 1e-6 or math.hypot(dx, dy) + allungo < 12:
+            continue
+        a = math.degrees(math.atan2(dy, dx))
+        if angoli:
+            a += 360 * round((angoli[-1] - a) / 360)
+        angoli.append(a)
+    if len(angoli) < 3:
+        continue
+    andirivieni = sum(abs(b - a) for a, b in zip(angoli, angoli[1:])) - abs(angoli[-1] - angoli[0])
+    nome = f"freccia {n} ({fr['da']:.2f}-{fr['a']:.2f} s)"
+    rimedio = ("rifai i punti con `grafiche-posa.py <posa> <dati> freccia <punto> <da> <a> --dritta` (sulla linea dall'inizio "
+               "alla fine del gesto, solo in avanti, come il bacino di 98c9b323) o scegli un tratto dove il gesto è più ampio")
+    if andirivieni >= 45:
+        errori.append(f"{nome}: la punta gira avanti e indietro di {andirivieni:.0f}° mentre avanza, traballa: {rimedio}")
+    elif andirivieni >= 30:
+        avvisi.append(f"{nome}: la punta gira avanti e indietro di {andirivieni:.0f}°, al limite (il bacino bocciato ne faceva 82): {rimedio}")
 
 for r in errori:
     print("  ✗ " + r)
