@@ -9,6 +9,7 @@ Uso come modulo: calcola(dati, lavoro, uscite=None, regole="") -> dict
 Uso da riga di comando (prova): python3 caratteristiche.py <cartella del lavoro>
 """
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -68,6 +69,28 @@ def _reel(p, dati, lavoro):
     }
 
 
+# Rubrica dall'occhiello della copertina (03/11/2026: «Come funziona» accanto a «Cosa dicono gli studi»): la revisione del
+# mese confronta i caroselli solo dentro la stessa rubrica. Stessi nomi del campo `rubrica` dei temi in dashboard
+def _rubrica(occhiello):
+    o = re.sub(r"[^a-z]+", "-", (occhiello or "").lower()).strip("-")
+    return o or "cosa-dicono-gli-studi"
+
+
+# Scrittura chiara (regola 16 della skill carosello-social, 03/11/2026): Gulpease e frasi sui testi lunghi delle slide
+# (frase, corpo, nota), con la stessa formula di federicopiazza.com/scripts/carosello-social/misura-testi.py, che in
+# social.yml non c'è (Lucisano e Piemontese 1988: 89 + (300·frasi − 10·lettere)/parole)
+def _testi_chiari(slide):
+    testo = " ".join(re.sub(r"\s+", " ", str(s.get(c) or "")) for s in slide for c in ("frase", "corpo", "nota") if s.get(c)).replace("📩", "").replace("🔖", "")
+    parole = re.findall(r"[A-Za-zÀ-ÿ'’0-9]+", testo)
+    if not parole:
+        return {"gulpease": None, "frase_media": None, "frasi_oltre_15": 0}
+    lettere = sum(len(re.sub(r"[^A-Za-zÀ-ÿ0-9]", "", w)) for w in parole)
+    frasi = [f for f in re.split(r"(?<=[.!?])\s+", testo.strip()) if f.strip()]
+    return {"gulpease": round(89 + (300 * max(1, len(re.findall(r"[.!?]+", testo))) - 10 * lettere) / len(parole)),
+            "frase_media": round(len(parole) / max(1, len(frasi)), 1),
+            "frasi_oltre_15": sum(1 for f in frasi if len(re.findall(r"[A-Za-zÀ-ÿ'’0-9]+", f)) > 15)}
+
+
 def _carosello(p, uscite):
     slide = p.get("slide") or []
     tipi = {}
@@ -89,6 +112,8 @@ def _carosello(p, uscite):
         "chiusura_guida": bool(chiusura.get("guida")),
         "campanelli": len(allarmi.get("voci") or []),
         "slide_animate": animate,
+        "rubrica": _rubrica(copertina.get("occhiello", "")),
+        **_testi_chiari(slide),
     }
 
 
