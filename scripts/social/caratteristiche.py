@@ -142,8 +142,20 @@ def calcola(dati, lavoro, uscite=None, regole=""):
         c["ciclo"] = {"giri": int(rv["giri"]), "superato": str(rv.get("esito", "")).startswith("superata"),
                       "restano": {k: int(restano.get(k) or 0) for k in ("blocca", "importante", "minore")},
                       "corrette": conta(rv.get("corrette")), "rifiutate": conta(rv.get("rifiutate")),
-                      "domande_a_federico": conta(rv.get("domande_federico"))}
+                      "domande_a_federico": conta(rv.get("domande_federico")),
+                      # Registro delle critiche (03/11/2026): i codici della griglia, per vedere quali domande tornano
+                      "critiche": {k: codici(rv.get(k)) for k in ("corrette", "aperte", "rifiutate")}}
     return c
+
+
+def codici(voci):
+    """Codici della griglia ("F3", "Q12") da voci che sono codici, {"id": …} o testi "F3: correzione"."""
+    out = []
+    for v in voci if isinstance(voci, list) else []:
+        k = v.get("id") if isinstance(v, dict) else re.sub(r"^\[[^\]]*\]\s*", "", str(v)).split(":")[0].strip()
+        if k and re.fullmatch(r"[A-Z]{1,3}\d{1,3}[a-z]?", k):
+            out.append(k)
+    return out
 
 
 def da_cartella(cartella, uscite=None):
