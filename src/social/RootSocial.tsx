@@ -1,5 +1,6 @@
 import { Composition, Still, staticFile } from "remotion";
-import { Carosello, durataAnimata, type CaroselloProps } from "./Carosello";
+import { type CaroselloProps } from "./Carosello";
+import { CaroselloRubrica, durataRubrica, type PropsRubrica } from "./ComeFunziona";
 import { EsercizioStruttura, type EsercizioStrutturaProps } from "./EsercizioStruttura";
 import { CopertinaMomenti, ReelMomenti, type ReelMomentiProps } from "./ReelMomenti";
 import { Storia, type StoriaProps } from "./Storia";
@@ -14,7 +15,8 @@ type PropsReel = EsercizioStrutturaProps | ReelMomentiProps;
 type DatiReel = { formato: "reel"; durata: number; props: PropsReel };
 const Reel: React.FC<PropsReel> = (props) =>
   "modello" in props && props.modello === "momenti" ? <ReelMomenti {...props} /> : <EsercizioStruttura {...(props as EsercizioStrutturaProps)} />;
-type DatiCarosello = { formato: "carosello"; props: Pick<CaroselloProps, "slide"> };
+// rubrica (03/11/2026): "come-funziona" = l'articolo del blog in carosello con le tavole (ComeFunziona.tsx), altrimenti «Cosa dicono gli studi»
+type DatiCarosello = { formato: "carosello"; props: Pick<PropsRubrica, "slide" | "rubrica"> };
 
 const reelVuoto: PropsReel = {
   video: "clip.mp4", altezzaVideo: 1920,
@@ -27,7 +29,7 @@ const reelVuoto: PropsReel = {
   invito: { da: 4, testo: "", icona: "📩" },
   archi: [], firma: "@fisioconfede", carattere: "inter",
 };
-const caroselloVuoto: CaroselloProps = { stile: "foto", slide: [{ tipo: "testo", titolo: "", corpo: "" }], avanzamento: "barra", firma: true };
+const caroselloVuoto: CaroselloProps & { rubrica?: string } = { stile: "foto", slide: [{ tipo: "testo", titolo: "", corpo: "" }], avanzamento: "barra", firma: true };
 
 const storiaVuota: StoriaProps = { formato: "carosello", social: "instagram", immagine: "storia-slide.jpg", slide: 8, variante: 1 };
 
@@ -79,7 +81,7 @@ export const RootSocial: React.FC = () => (
       <Composition
         key={id}
         id={id}
-        component={Carosello}
+        component={CaroselloRubrica}
         fps={1}
         width={1080}
         height={altezza}
@@ -89,7 +91,7 @@ export const RootSocial: React.FC = () => (
           try {
             const d = await leggi<DatiCarosello>();
             return {
-              props: { stile: "foto" as const, avanzamento: "barra" as const, firma: true, slide: d.props.slide, verticale, controllo: props.controllo },
+              props: { stile: "foto" as const, avanzamento: "barra" as const, firma: true, rubrica: d.props.rubrica, slide: d.props.slide, verticale, controllo: props.controllo },
               durationInFrames: d.props.slide.length,
             };
           } catch {
@@ -102,7 +104,7 @@ export const RootSocial: React.FC = () => (
         frasi fisse, in immagine (carosello) o in video di 8 s (Reel). I dati della cornice arrivano con --props. */}
     <Composition
       id="CaroselloStoria"
-      component={Carosello}
+      component={CaroselloRubrica}
       fps={1}
       width={1080}
       height={1350}
@@ -111,7 +113,7 @@ export const RootSocial: React.FC = () => (
       calculateMetadata={async ({ props }) => {
         try {
           const d = await leggi<DatiCarosello>();
-          return { props: { stile: "foto" as const, avanzamento: "barra" as const, firma: true, slide: d.props.slide, storia: true } };
+          return { props: { stile: "foto" as const, avanzamento: "barra" as const, firma: true, rubrica: d.props.rubrica, slide: d.props.slide, storia: true } };
         } catch {
           return { props };
         }
@@ -123,7 +125,7 @@ export const RootSocial: React.FC = () => (
     {/* Slide animate per Instagram (28/10/2026): una slide (indice) a 30 fps, durata da durataAnimata */}
     <Composition
       id="CaroselloAnimato"
-      component={Carosello}
+      component={CaroselloRubrica}
       fps={30}
       width={1080}
       height={1350}
@@ -134,8 +136,8 @@ export const RootSocial: React.FC = () => (
           const d = await leggi<DatiCarosello>();
           const indice = props.indice ?? 0;
           return {
-            props: { stile: "foto" as const, avanzamento: "barra" as const, firma: true, slide: d.props.slide, animato: true, indice },
-            durationInFrames: Math.max(1, durataAnimata(d.props.slide[indice]) * 30),
+            props: { stile: "foto" as const, avanzamento: "barra" as const, firma: true, rubrica: d.props.rubrica, slide: d.props.slide, animato: true, indice },
+            durationInFrames: Math.max(1, Math.round(durataRubrica(d.props.rubrica, d.props.slide[indice]) * 30)),
           };
         } catch {
           return { props };

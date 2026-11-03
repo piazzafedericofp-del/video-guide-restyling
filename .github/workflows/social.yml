@@ -45,6 +45,7 @@ jobs:
             social/ritratto-scontornato.png
             social/musica.json
             social/guide
+            social/tavole
 
       - name: Codice
         uses: actions/checkout@v4
@@ -196,6 +197,8 @@ jobs:
           cp ../media/social/ritratto-scontornato.png public/ritratto-scontornato.png  # chiusura verso lo studio (29/10/2026)
           # Chiusura verso una video guida (28/10/2026): un movimento della guida, video e fotogramma fermo dall'archivio privato
           for G in $(jq -r '[.props.slide[]? | .guida? // empty | .video, .fermo] | .[]' "$D"); do cp "../media/social/guide/$G" "public/$G"; done
+          # Rubrica «Come funziona» (03/11/2026): copie per i social delle tavole del blog approvate (svg, kit-disegni.css, kit-defs.svg)
+          if jq -e '.props.rubrica == "come-funziona"' "$D" > /dev/null; then mkdir -p public/tavole && cp ../media/social/tavole/* public/tavole/; fi
           mkdir -p out/consegna
           # Foto: girato, clip, immagine in dashboard (r2:) o generata con l'IA (ia, campo prompt)
           bash scripts/social/prepara-foto.sh "$ID" "$D"
