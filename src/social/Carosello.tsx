@@ -1,5 +1,5 @@
 import { loadFont } from "@remotion/fonts";
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { AbsoluteFill, continueRender, delayRender, Img, OffthreadVideo, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 
 loadFont({ family: "Inter", url: staticFile("Inter.woff2"), weight: "100 900" });
@@ -82,6 +82,23 @@ export type Slide =
 // animato + indice (28/10/2026): una sola slide a 30 fps, gli elementi entrano col tempo (MP4 per Instagram);
 // senza, ogni fotogramma è una slide già al suo stato finale (JPEG per tutti i social).
 export type CaroselloProps = { stile: Stile; slide: Slide[]; avanzamento?: "numeri" | "barra"; controllo?: boolean; verticale?: boolean; firma?: boolean; animato?: boolean; indice?: number; storia?: boolean };
+
+// A capo (03/11/2026, ripasso dei caroselli: in 5 slide su 8 le righe finivano con «il», «di», «con», «o»): una riga
+// non finisce con un articolo, una preposizione, «e», «o», «non», «che» (si legano alla parola dopo con uno spazio
+// non separabile) e "2 su 3" non si spezza. Titolo ed evidenza delle slide con l'evidenza restano come sono: hanno
+// gli a capo scritti a mano e l'evidenza va ritrovata uguale nel titolo.
+const PAROLE_CORTE = new RegExp(
+  "(?<=^|[\\s(«\"])(il|lo|la|i|gli|le|un|uno|una|di|a|da|in|con|su|per|tra|fra|del|dello|della|dei|degli|delle|al|allo|alla|ai|agli|alle|dal|dallo|dalla|dai|dagli|dalle|nel|nello|nella|nei|negli|nelle|sul|sullo|sulla|sui|sugli|sulle|col|coi|e|ed|o|non|che|se|ma) (?=\\S)",
+  "gi",
+);
+const lega = (t: string) => t.replace(PAROLE_CORTE, "$1 ").replace(/(\d) (?=su \d)/g, "$1 ");
+const legaSlide = (s: Slide): Slide => {
+  const x = { ...s } as Record<string, unknown>;
+  const campi = ["sotto", "frase", "corpo", "nota", "invito", ...("evidenza" in x && x.evidenza ? [] : ["titolo"])];
+  for (const c of campi) if (typeof x[c] === "string") x[c] = lega(x[c] as string);
+  if (Array.isArray(x.voci)) x.voci = x.voci.map((v) => (typeof v === "string" ? lega(v) : v && typeof v === "object" && "testo" in v ? { ...v, testo: lega(String((v as { testo: string }).testo)) } : v));
+  return x as Slide;
+};
 
 // Slide che su Instagram escono animate: barre, pochi omini, chiusura con la guida. Durata in secondi.
 export const durataAnimata = (s: Slide) =>
@@ -251,12 +268,13 @@ export const Carosello: React.FC<CaroselloProps> = (props) => {
     });
   }, [attesa, frame, props.verticale]);
   const indice = props.indice ?? Math.min(frame, props.slide.length - 1);
-  const contenuto = <Slide1 {...props} indice={indice} />;
+  const slide = useMemo(() => props.slide.map(legaSlide), [props.slide]);
+  const contenuto = <Slide1 {...props} slide={slide} indice={indice} />;
   return (
     <Tempo.Provider value={!!props.animato}>
     <Avanzamento.Provider value={{ barra: props.avanzamento === "barra", scuro: props.stile === "navy", firma: !!props.firma, storia: !!props.storia }}>
       {props.verticale ? (
-        <AbsoluteFill style={{ backgroundColor: sfondoSlide(props, indice) }}>
+        <AbsoluteFill style={{ backgroundColor: sfondoSlide({ ...props, slide }, indice) }}>
           <div style={{ position: "absolute", left: 9, top: 210, width: 1080, height: 1350, transform: `scale(${SCALA_VERTICALE})`, transformOrigin: "0 0" }}>
             {contenuto}
           </div>
