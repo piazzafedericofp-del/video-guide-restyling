@@ -91,7 +91,9 @@ const PAROLE_CORTE = new RegExp(
   "(?<=^|[\\s(«\"])(il|lo|la|i|gli|le|un|uno|una|di|a|da|in|con|su|per|tra|fra|del|dello|della|dei|degli|delle|al|allo|alla|ai|agli|alle|dal|dallo|dalla|dai|dagli|dalle|nel|nello|nella|nei|negli|nelle|sul|sullo|sulla|sui|sugli|sulle|col|coi|e|ed|o|non|che|se|ma) (?=\\S)",
   "gi",
 );
-const lega = (t: string) => t.replace(PAROLE_CORTE, "$1 ").replace(/(\d) (?=su \d)/g, "$1 ");
+// e un numero resta con la sua unità ("6 mesi", "14 giorni", "2 su 3"; fascite 03/11/2026: «A 6 / mesi»)
+const UNITA = /(\d) (?=(su|mesi|mese|giorni|giorno|settimane|settimana|anni|anno|ore|ora|minuti|secondi|volte|persone|persona|studi|serie|ripetizioni)([\s\u00a0.,;:!?)]|$))/g;
+const lega = (t: string) => t.replace(PAROLE_CORTE, "$1\u00a0").replace(UNITA, "$1\u00a0");
 const legaSlide = (s: Slide): Slide => {
   const x = { ...s } as Record<string, unknown>;
   const campi = ["sotto", "frase", "corpo", "nota", "invito", ...("evidenza" in x && x.evidenza ? [] : ["titolo"])];
