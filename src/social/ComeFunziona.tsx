@@ -25,7 +25,9 @@ export type MiniDisegno = { svg: string; tempo: number; inquadratura?: string; l
 export type CopertinaCome = Extract<Slide, { tipo: "copertina" }> & { disegni?: MiniDisegno[]; filo?: MiniDisegno };
 // "salva" (03/11/2026): l'invito a salvare sulla slide del dato, senza una slide di riepilogo
 export type DatoCome = Extract<Slide, { tipo: "dato" }> & { salva?: string };
-export type SlideCome = Exclude<Slide, { tipo: "copertina" | "dato" }> | CopertinaCome | DatoCome | SlideTavola;
+// "segni" (04/11/2026, sciatica): nel riaggancio i segni concreti per riconoscere il problema, con la fonte
+export type TestoCome = Extract<Slide, { tipo: "testo" }> & { segni?: { titolo: string; voci: string[]; fonte?: string } };
+export type SlideCome = Exclude<Slide, { tipo: "copertina" | "dato" | "testo" }> | CopertinaCome | DatoCome | TestoCome | SlideTavola;
 export type PropsCome = { slide: SlideCome[]; controllo?: boolean; verticale?: boolean; animato?: boolean; indice?: number; storia?: boolean };
 
 // Carosello di una rubrica: «Come funziona» nel suo stile, tutto il resto («Cosa dicono gli studi») in Carosello.tsx
@@ -184,7 +186,7 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
     ));
   }
 
-  // ── B · La risposta subito, con il disegno della copertina in piccolo (filo con la slide 1)
+  // ── B · La risposta subito, con il disegno della copertina in piccolo (filo con la slide 1) e i segni per riconoscerlo
   if (s.tipo === "testo") {
     return pagina(true, (
       <Colonna>
@@ -192,6 +194,20 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
         <div style={{ color: t.titolo, fontSize: 70, fontWeight: 800, lineHeight: 1.1, marginTop: 30 }}>{s.titolo}</div>
         <div style={{ width: 120, height: 10, background: AMBER_400, borderRadius: 5, margin: "34px 0" }} />
         <div style={{ color: t.corpo, fontSize: 44, fontWeight: 500, lineHeight: 1.38, ...RIGHE }}>{perRighe(s.corpo)}</div>
+        {s.segni ? (
+          <div style={{ marginTop: 44, background: t.carta, borderRadius: 24, padding: "34px 40px" }}>
+            <div style={{ color: t.titolo, fontSize: 40, fontWeight: 800, marginBottom: 24 }}>{s.segni.titolo}</div>
+            {s.segni.voci.map((v) => (
+              <div key={v} style={{ display: "flex", gap: 24, alignItems: "flex-start", marginBottom: 20 }}>
+                <div style={{ flex: "none", width: 52, height: 52, borderRadius: 26, background: AMBER_400, display: "flex", alignItems: "center", justifyContent: "center", marginTop: 2 }}>
+                  <svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke={NAVY_800} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                </div>
+                <div style={{ color: t.titolo, fontSize: 40, fontWeight: 600, lineHeight: 1.3, ...RIGHE }}>{v}</div>
+              </div>
+            ))}
+            {s.segni.fonte ? <div style={{ color: t.debole, fontSize: 28, fontWeight: 500, marginTop: 6 }}>Fonte: {s.segni.fonte}</div> : null}
+          </div>
+        ) : null}
       </Colonna>
     ));
   }
