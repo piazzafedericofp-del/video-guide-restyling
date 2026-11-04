@@ -27,7 +27,9 @@ export type Illustrazione =
   // una scheda per controllo, i due gruppi in ogni scheda, evidenziato quello che sta meglio (nessuno se pari).
   | { tipo: "tempi"; a: string; b: string; tappe: { quando: string; esito: string; meglio?: "a" | "b" }[] }
   // Proporzioni a confronto (es. per età): barre su 100, il valore detto a parole accanto
-  | { tipo: "barre"; righe: { etichetta: string; valore: number; testo: string }[] };
+  // scala (04/11/2026, Federico: «non si capisce subito che il numero è riferito alla scala di dolore»): per un punteggio
+  // (dolore da 0 a 100) titolo sopra le barre e righello sotto, con gli estremi detti a parole; mai «52 su 100»
+  | { tipo: "barre"; righe: { etichetta: string; valore: number; testo: string }[]; scala?: { titolo?: string; da: string; a: string } };
 
 // Icone a tratto in stile Lucide (viewBox 24), disegnate qui per non aggiungere dipendenze.
 const TRATTI: Record<NomeIcona, React.ReactNode> = {
@@ -526,11 +528,12 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
               </div>
             ) : null}
             {barre ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: barre.righe.length > 3 ? 26 : 44, marginTop: 56 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: barre.righe.length > 3 ? 26 : barre.scala ? 30 : 44, marginTop: barre.scala ? 44 : 56 }}>
+                {barre.scala?.titolo ? <div style={{ color: NAVY_800, fontSize: 40, fontWeight: 800, marginBottom: -6 }}>{barre.scala.titolo}</div> : null}
                 {barre.righe.map((b, i) => {
                   const p = entra(f, fps, 0.5 + i * 0.9);
                   const ultima = i === barre.righe.length - 1;
-                  const alta = barre.righe.length > 3 ? 52 : 88;
+                  const alta = barre.righe.length > 3 ? 52 : barre.scala ? 64 : 88;
                   return (
                     <div key={i}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
@@ -543,6 +546,15 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
                     </div>
                   );
                 })}
+                {barre.scala ? (
+                  // il righello: gli estremi della scala sotto l'ultima barra, allineati ai suoi bordi
+                  <div style={{ marginTop: -14 }}>
+                    <div style={{ height: 14, borderLeft: `3px solid ${SLATE_500}`, borderRight: `3px solid ${SLATE_500}`, borderBottom: `3px solid ${SLATE_500}` }} />
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, color: SLATE_600, fontSize: 32, fontWeight: 700 }}>
+                      <span>{barre.scala.da}</span><span>{barre.scala.a}</span>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : null}
             {tempi ? (
