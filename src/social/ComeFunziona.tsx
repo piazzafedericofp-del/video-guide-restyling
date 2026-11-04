@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, Img, OffthreadVideo, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
-import { Carosello, durataAnimata, type CaroselloProps, type Slide } from "./Carosello";
+import { Carosello, durataAnimata, NumeroLegenda, OMINO_GRIGIO, type CaroselloProps, type Slide } from "./Carosello";
 import { durataTavola, Omino, SCALA_VERTICALE, useDisegni, type SlideTavola } from "./Tavole";
 
 // Rubrica «Come funziona» (skill carosello-social, variante «Come funziona»): l'articolo del blog in carosello, con le
@@ -237,21 +237,31 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
   // ── Cosa aspettarti: il numero, i 100 omini e l'invito a salvare
   if (s.tipo === "dato") {
     const pitto = s.illustrazione?.tipo === "pittogramma" ? s.illustrazione : null;
+    const omini = pitto ? (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(20, 45px)", marginBottom: 28 }}>
+        {Array.from({ length: pitto.totale }, (_, i) => (
+          <svg key={i} width={36} height={36} viewBox="0 0 24 24" fill={i < pitto.su ? t.numero : OMINO_GRIGIO}>
+            <circle cx="12" cy="6" r="4.2" /><path d="M4 23v-2.5a6.5 6.5 0 0 1 6.5-6.5h3a6.5 6.5 0 0 1 6.5 6.5V23z" />
+          </svg>
+        ))}
+      </div>
+    ) : null;
     return pagina(true, (
       <Colonna>
         <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <div style={{ color: t.etichetta, fontSize: 30, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" }}>{s.etichetta}</div>
-          {s.numero ? <div style={{ color: t.numero, fontSize: 136, fontWeight: 900, lineHeight: 1, letterSpacing: "-0.04em", margin: "20px 0 26px" }}>{s.numero}</div> : null}
-          {pitto ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(20, 45px)", marginBottom: 28 }}>
-              {Array.from({ length: pitto.totale }, (_, i) => (
-                <svg key={i} width={36} height={36} viewBox="0 0 24 24" fill={i < pitto.su ? t.numero : "#C5CEDA"}>
-                  <circle cx="12" cy="6" r="4.2" /><path d="M4 23v-2.5a6.5 6.5 0 0 1 6.5-6.5h3a6.5 6.5 0 0 1 6.5 6.5V23z" />
-                </svg>
-              ))}
+          {pitto && s.chi && s.cosa ? (
+            // Numero con chi e cosa (variante B, Federico 04/11/2026): il numero sta nella legenda, accanto al suo significato
+            <div style={{ marginTop: 20 }}>
+              <NumeroLegenda chi={s.chi} cosa={s.cosa} altri={s.altri} su={pitto.su} totale={pitto.totale} colore={t.numero} testo={t.titolo} debole={t.debole}>
+                {omini}
+              </NumeroLegenda>
             </div>
-          ) : null}
-          <div style={{ color: t.titolo, fontSize: 56, fontWeight: 750, lineHeight: 1.18, ...RIGHE }}>{perRighe(s.frase)}</div>
+          ) : (<>
+            {s.numero ? <div style={{ color: t.numero, fontSize: 136, fontWeight: 900, lineHeight: 1, letterSpacing: "-0.04em", margin: "20px 0 26px" }}>{s.numero}</div> : null}
+            {omini}
+            {s.frase ? <div style={{ color: t.titolo, fontSize: 56, fontWeight: 750, lineHeight: 1.18, ...RIGHE }}>{perRighe(s.frase)}</div> : null}
+          </>)}
           {s.nota ? <div style={{ background: t.carta, borderLeft: `8px solid ${AMBER_400}`, borderRadius: 12, padding: "24px 30px", marginTop: 36, color: t.titolo, fontSize: 38, fontWeight: 600, lineHeight: 1.35, ...RIGHE }}>{s.nota}</div> : null}
           <div style={{ color: t.debole, fontSize: 28, fontWeight: 500, lineHeight: 1.4, marginTop: 30 }}>Fonte: {s.fonte}</div>
           {s.salva ? (

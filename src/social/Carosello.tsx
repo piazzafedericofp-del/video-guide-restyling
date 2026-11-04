@@ -58,10 +58,36 @@ const Omino: React.FC<{ lato: number; colore: string }> = ({ lato, colore }) => 
   </svg>
 );
 
+// Numero con chi e cosa (04/11/2026, Federico: «il dato manca di soggetto, non si capisce a chi ci stiamo riferendo,
+// deve essere intuibile subito a colpo d'occhio»; scelta la variante B su 3 render affiancati). Prima chi sono le
+// persone, poi gli omini (li passa chi chiama), poi la legenda: omino colorato, numero, che cosa è successo; la riga
+// grigia ("altri") solo se aiuta il messaggio. Il numero si legge accanto al suo significato, senza cercarlo nella frase.
+export const OMINO_GRIGIO = "#C5CEDA";
+export const NumeroLegenda: React.FC<{
+  chi: string; cosa: string; altri?: string; su: number; totale: number;
+  colore: string; testo: string; debole: string; children: React.ReactNode;
+}> = ({ chi, cosa, altri, su, totale, colore, testo, debole, children }) => (
+  <>
+    <div style={{ color: testo, fontSize: 60, fontWeight: 800, lineHeight: 1.14, marginBottom: 30 }}>{lega(chi)}</div>
+    {children}
+    <div style={{ display: "grid", gridTemplateColumns: "auto auto 1fr", columnGap: 20, rowGap: 26, alignItems: "center", marginTop: 6 }}>
+      {([[colore, su, cosa, true], [OMINO_GRIGIO, totale - su, altri, false]] as const).filter((r) => r[2]).map(([col, num, txt, primo]) => (
+        <React.Fragment key={String(primo)}>
+          <Omino lato={primo ? 60 : 48} colore={col} />
+          <span style={{ color: primo ? colore : debole, fontSize: primo ? 96 : 64, fontWeight: 900, letterSpacing: "-0.03em", lineHeight: 1, textAlign: "right" }}>{num}</span>
+          <span style={{ color: primo ? testo : debole, fontSize: primo ? 46 : 40, fontWeight: primo ? 800 : 650, lineHeight: 1.15 }}>{lega(String(txt))}</span>
+        </React.Fragment>
+      ))}
+    </div>
+  </>
+);
+
 export type Slide =
   | { tipo: "copertina"; occhiello: string; titolo: string; evidenza: string; sotto: string; foto?: string; fotoIA?: boolean }
   | { tipo: "testo"; titolo: string; corpo: string; referto?: { intestazione: string; riga: string; evidenza: string } }
-  | { tipo: "dato"; etichetta: string; numero?: string; frase: string; nota?: string; fonte: string; illustrazione?: Illustrazione }
+  // chi, cosa, altri (04/11/2026, variante B scelta da Federico): con un pittogramma, il numero non sta più da solo in
+  // alto ma nella legenda accanto all'omino colorato, sotto "chi" (le persone); la frase allora non serve.
+  | { tipo: "dato"; etichetta: string; numero?: string; frase?: string; chi?: string; cosa?: string; altri?: string; nota?: string; fonte: string; illustrazione?: Illustrazione }
   | { tipo: "lista"; titolo: string; segno: "si" | "no" | "attenzione"; voci: string[]; nota?: string; icone?: NomeIcona[]; scuro?: boolean }
   // guida (28/10/2026): i caroselli che portano a una video guida mostrano un solo movimento della guida (video su
   // Instagram, fotogramma fermo altrove) con il nome della guida come titolo; lo studio scende nella firma.
@@ -96,7 +122,7 @@ const UNITA = /(\d) (?=(su|mesi|mese|giorni|giorno|settimane|settimana|anni|anno
 const lega = (t: string) => t.replace(PAROLE_CORTE, "$1\u00a0").replace(UNITA, "$1\u00a0");
 const legaSlide = (s: Slide): Slide => {
   const x = { ...s } as Record<string, unknown>;
-  const campi = ["sotto", "frase", "corpo", "nota", "invito", ...("evidenza" in x && x.evidenza ? [] : ["titolo"])];
+  const campi = ["sotto", "frase", "corpo", "nota", "invito", "chi", "cosa", "altri", ...("evidenza" in x && x.evidenza ? [] : ["titolo"])];
   for (const c of campi) if (typeof x[c] === "string") x[c] = lega(x[c] as string);
   if (Array.isArray(x.voci)) x.voci = x.voci.map((v) => (typeof v === "string" ? lega(v) : v && typeof v === "object" && "testo" in v ? { ...v, testo: lega(String((v as { testo: string }).testo)) } : v));
   return x as Slide;
@@ -435,18 +461,10 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
     const barre = s.illustrazione?.tipo === "barre" ? s.illustrazione : null;
     // C · Prova (28/10/2026): barre e pochi omini grandi, che su Instagram entrano col tempo
     const grande = !!barre || (!!pitto && pitto.totale <= 10);
-    const Zona: React.FC<{ children: React.ReactNode }> = grande ? Contenuto
-      : ({ children }) => <div style={{ position: "absolute", left: 90, right: 90, top: 0, bottom: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>{children}</div>;
-    return (
-      <AbsoluteFill style={base}>
-        <Cornice n={n} tot={tot} colore={t.debole}>
-          <Zona>
-            <div style={{ color: t.accento, fontSize: 30, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 28 }}>{s.etichetta}</div>
-            {/* Numero lungo ("6 settimane"): a 200 px va su due righe e esce dal margine (mal di schiena 24/10) */}
-            {s.numero ? (
-              <div style={{ color: t.accento, fontSize: pitto || s.numero.length > 8 ? 136 : 200, fontWeight: 900, lineHeight: 1, letterSpacing: "-0.04em", marginBottom: 30 }}>{s.numero}</div>
-            ) : null}
-            {pitto ? (
+    // Numero con chi e cosa (variante B, 04/11/2026): serve il pittogramma
+    const legenda = pitto && s.chi && s.cosa ? pitto : null;
+    const omini = (
+      pitto ? (
               pitto.totale <= 10 ? (
                 // "2 su 3": tre omini grandi, lo stesso denominatore del numero (icon array, Garcia-Retamero e Galesic)
                 <div style={{ display: "flex", gap: 22, marginBottom: 44 }}>
@@ -468,8 +486,27 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
                 ))}
               </div>
               )
+            ) : null
+    );
+    const Zona: React.FC<{ children: React.ReactNode }> = grande ? Contenuto
+      : ({ children }) => <div style={{ position: "absolute", left: 90, right: 90, top: 0, bottom: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>{children}</div>;
+    return (
+      <AbsoluteFill style={base}>
+        <Cornice n={n} tot={tot} colore={t.debole}>
+          <Zona>
+            <div style={{ color: t.accento, fontSize: 30, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 28 }}>{s.etichetta}</div>
+            {legenda ? (
+              <NumeroLegenda chi={s.chi!} cosa={s.cosa!} altri={s.altri} su={legenda.su} totale={legenda.totale} colore={t.accento} testo={t.titolo} debole={SLATE_600}>
+                {omini}
+              </NumeroLegenda>
+            ) : (<>
+            {/* Numero lungo ("6 settimane"): a 200 px va su due righe e esce dal margine (mal di schiena 24/10) */}
+            {s.numero ? (
+              <div style={{ color: t.accento, fontSize: pitto || s.numero.length > 8 ? 136 : 200, fontWeight: 900, lineHeight: 1, letterSpacing: "-0.04em", marginBottom: 30 }}>{s.numero}</div>
             ) : null}
-            <div style={{ color: t.titolo, fontSize: s.numero ? 56 : barre ? 64 : 66, fontWeight: 750, lineHeight: barre ? 1.16 : 1.18 }}>{s.frase}</div>
+            {omini}
+            {s.frase ? <div style={{ color: t.titolo, fontSize: s.numero ? 56 : barre ? 64 : 66, fontWeight: 750, lineHeight: barre ? 1.16 : 1.18 }}>{s.frase}</div> : null}
+            </>)}
             {conf ? (
               <div style={{ display: "flex", alignItems: "stretch", gap: 24, marginTop: 44 }}>
                 <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 20, background: t.card, borderRadius: 14, padding: "22px 26px" }}>
