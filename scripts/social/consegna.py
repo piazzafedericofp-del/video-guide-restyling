@@ -44,4 +44,5 @@ try:
     campi |= carica_storie(pid, uscite)
 except Exception as e:  # noqa: BLE001
     print(f"Storie non caricate: {e}", file=sys.stderr)
-print(chiama(f"/api/generatore/post/{pid}", "POST", {**campi, "fase": "pronto"}))
+# Consegna ripetibile: rimette gli stessi campi e lo stesso stato, quindi riprova anche lei su un errore passeggero
+print(chiama(f"/api/generatore/post/{pid}", "POST", {**campi, "fase": "pronto"}, ripeti=True))
