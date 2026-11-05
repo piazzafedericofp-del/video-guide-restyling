@@ -90,7 +90,9 @@ export const NumeroLegenda: React.FC<{
 
 export type Slide =
   | { tipo: "copertina"; occhiello: string; titolo: string; evidenza: string; sotto: string; foto?: string; fotoIA?: boolean }
-  | { tipo: "testo"; titolo: string; corpo: string; referto?: { intestazione: string; riga: string; evidenza: string } }
+  // segni, figura, ponte (05/11/2026, Federico, variante Y): la risposta in una riga, i segni in un riquadro con la
+  // figura accanto (nuca accesa da un lato), e una riga che porta alla slide degli studi; senza la foto della copertina
+  | { tipo: "testo"; titolo: string; corpo: string; referto?: { intestazione: string; riga: string; evidenza: string }; segni?: { titolo: string; voci: string[] }; figura?: "nuca"; ponte?: string }
   // chi, cosa, altri (04/11/2026, variante B scelta da Federico): con un pittogramma, il numero non sta più da solo in
   // alto ma nella legenda accanto all'omino colorato, sotto "chi" (le persone); la frase allora non serve.
   | { tipo: "dato"; etichetta: string; numero?: string; frase?: string; chi?: string; cosa?: string; altri?: string; nota?: string; fonte: string; illustrazione?: Illustrazione }
@@ -401,7 +403,7 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
 
   // B · Riaggancio (28/10/2026): la scena della copertina torna in alto, sfumata nella sabbia (filo con la slide 1)
   const cop = slide[0];
-  if (s.tipo === "testo" && n === 2 && stile === "foto" && cop.tipo === "copertina" && cop.foto) {
+  if (s.tipo === "testo" && n === 2 && stile === "foto" && cop.tipo === "copertina" && cop.foto && !s.segni) {
     return (
       <AbsoluteFill style={{ ...base, backgroundColor: t.sfondo }}>
         <Img src={staticFile(cop.foto)} style={{ position: "absolute", left: 0, top: 0, width: 1080, height: 400, objectFit: "cover", objectPosition: "50% 22%" }} />
@@ -453,7 +455,31 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
             ) : (
               <div style={{ width: 120, height: 10, background: AMBER_400, borderRadius: 5, margin: "48px 0" }} />
             )}
-            <div style={{ color: t.corpo, fontSize: 44, fontWeight: 500, lineHeight: 1.4 }}>{s.corpo}</div>
+            <div style={{ color: t.corpo, fontSize: s.segni ? 42 : 44, fontWeight: s.segni ? 600 : 500, lineHeight: s.segni ? 1.35 : 1.4 }}>{s.corpo}</div>
+            {s.segni ? (
+              <div style={{ background: "white", borderRadius: 18, padding: "22px 30px", marginTop: 22, display: "flex", gap: 30, alignItems: "center" }}>
+                {s.figura === "nuca" ? (
+                  // testa vista da dietro, la nuca accesa da un lato: il segno più tipico del mal di testa che parte dal collo
+                  <svg width={200} height={240} viewBox="0 0 200 240" style={{ flex: "none" }}>
+                    <defs><radialGradient id="dolore-nuca"><stop offset="0" stopColor="#F59E0B" stopOpacity="0.9" /><stop offset="1" stopColor="#F59E0B" stopOpacity="0" /></radialGradient></defs>
+                    <ellipse cx="100" cy="92" rx="70" ry="82" fill="#E9DFCF" />
+                    <path d="M58 150 Q100 180 142 150 L150 240 L50 240 Z" fill="#E9DFCF" />
+                    <ellipse cx="28" cy="96" rx="10" ry="20" fill="#E0D3BE" /><ellipse cx="172" cy="96" rx="10" ry="20" fill="#E0D3BE" />
+                    <ellipse cx="128" cy="160" rx="38" ry="30" fill="url(#dolore-nuca)" />
+                  </svg>
+                ) : null}
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: NAVY_800, fontSize: 40, fontWeight: 800, marginBottom: 18 }}>{s.segni.titolo}</div>
+                  {s.segni.voci.map((v, i) => (
+                    <div key={i} style={{ display: "flex", gap: 20, alignItems: "center", marginTop: i ? 14 : 0 }}>
+                      <svg width={44} height={44} viewBox="0 0 60 60" style={{ flex: "none", marginTop: 2 }}><circle cx="30" cy="30" r="30" fill={BRAND_700} /><path d="M17 31 L26 40 L44 21" fill="none" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      <div style={{ color: NAVY_800, fontSize: 44, fontWeight: 700, lineHeight: 1.2 }}>{lega(v)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {s.ponte ? <div style={{ color: BRAND_700, fontSize: 42, fontWeight: 800, marginTop: 30 }}>{s.ponte}</div> : null}
           </div>
         </Cornice>
       </AbsoluteFill>
