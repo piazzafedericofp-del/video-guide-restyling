@@ -262,6 +262,26 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
             {omini}
             {s.frase ? <div style={{ color: t.titolo, fontSize: 56, fontWeight: 750, lineHeight: 1.18, ...RIGHE }}>{perRighe(s.frase)}</div> : null}
           </>)}
+          {/* barre con la scala del dolore (anca, Federico 05/11/2026): il numero si vede a colpo d'occhio, ferme come gli omini */}
+          {s.illustrazione?.tipo === "barre" ? (() => { const barre = s.illustrazione; return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 30, marginTop: 44 }}>
+              {barre.scala?.titolo ? <div style={{ color: NAVY_800, fontSize: 40, fontWeight: 800, marginBottom: -6 }}>{barre.scala.titolo}</div> : null}
+              {barre.righe.map((b, i) => { const ultima = i === barre.righe.length - 1; return (
+                <div key={i}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
+                    <div style={{ color: "#475569", fontSize: 36, fontWeight: 700 }}>{b.etichetta}</div>
+                    <div style={{ color: ultima ? BRAND_700 : NAVY_800, fontSize: 60, fontWeight: 900, letterSpacing: "-0.03em" }}>{b.testo}</div>
+                  </div>
+                  <div style={{ height: 64, borderRadius: 16, background: "#E2E8F0", overflow: "hidden" }}>
+                    <div style={{ width: `${b.valore}%`, height: "100%", borderRadius: 16, background: ultima ? BRAND_700 : "#5B6472" }} />
+                  </div>
+                </div>); })}
+              {barre.scala ? (
+                <div style={{ marginTop: -14 }}>
+                  <div style={{ height: 14, borderLeft: "3px solid #5B6472", borderRight: "3px solid #5B6472", borderBottom: "3px solid #5B6472" }} />
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, color: "#475569", fontSize: 32, fontWeight: 700 }}><span>{barre.scala.da}</span><span>{barre.scala.a}</span></div>
+                </div>) : null}
+            </div>); })() : null}
           {s.nota ? <div style={{ background: t.carta, borderLeft: `8px solid ${AMBER_400}`, borderRadius: 12, padding: "24px 30px", marginTop: 36, color: t.titolo, fontSize: 38, fontWeight: 600, lineHeight: 1.35, ...RIGHE }}>{s.nota}</div> : null}
           <div style={{ color: t.debole, fontSize: 28, fontWeight: 500, lineHeight: 1.4, marginTop: 30 }}>Fonte: {s.fonte}</div>
           {s.salva ? (
