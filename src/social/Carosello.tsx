@@ -92,7 +92,7 @@ export type Slide =
   | { tipo: "copertina"; occhiello: string; titolo: string; evidenza: string; sotto: string; foto?: string; fotoIA?: boolean }
   // segni, figura, ponte (05/11/2026, Federico, variante Y): la risposta in una riga, i segni in un riquadro con la
   // figura accanto (nuca accesa da un lato), e una riga che porta alla slide degli studi; senza la foto della copertina
-  | { tipo: "testo"; titolo: string; corpo: string; referto?: { intestazione: string; riga: string; evidenza: string }; segni?: { titolo: string; voci: string[] }; figura?: "nuca" | "gomito" | "tallone"; ponte?: string }
+  | { tipo: "testo"; titolo: string; corpo: string; referto?: { intestazione: string; riga: string; evidenza: string }; segni?: { titolo: string; voci: string[] }; figura?: "nuca" | "gomito" | "tallone"; ponte?: string; scena?: string; conFoto?: boolean }
   // chi, cosa, altri (04/11/2026, variante B scelta da Federico): con un pittogramma, il numero non sta più da solo in
   // alto ma nella legenda accanto all'omino colorato, sotto "chi" (le persone); la frase allora non serve.
   | { tipo: "dato"; etichetta: string; numero?: string; frase?: string; chi?: string; cosa?: string; altri?: string; nota?: string; fonte: string; illustrazione?: Illustrazione }
@@ -402,8 +402,9 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
   }
 
   // B · Riaggancio (28/10/2026): la scena della copertina torna in alto, sfumata nella sabbia (filo con la slide 1)
+  // Dal 05/11/2026 (Federico, variante Y e poi B) la slide 2 non ripete la foto della copertina: resta solo se `conFoto`
   const cop = slide[0];
-  if (s.tipo === "testo" && n === 2 && stile === "foto" && cop.tipo === "copertina" && cop.foto && !s.segni) {
+  if (s.tipo === "testo" && n === 2 && stile === "foto" && cop.tipo === "copertina" && cop.foto && !s.segni && s.conFoto) {
     return (
       <AbsoluteFill style={{ ...base, backgroundColor: t.sfondo }}>
         <Img src={staticFile(cop.foto)} style={{ position: "absolute", left: 0, top: 0, width: 1080, height: 400, objectFit: "cover", objectPosition: "50% 22%" }} />
@@ -456,7 +457,16 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
             ) : (
               <div style={{ width: 120, height: 10, background: AMBER_400, borderRadius: 5, margin: "48px 0" }} />
             )}
-            <div style={{ color: t.corpo, fontSize: s.segni ? 42 : 44, fontWeight: s.segni ? 600 : 500, lineHeight: s.segni ? 1.35 : 1.4 }}>{s.corpo}</div>
+            {s.scena ? (
+              // scena accanto alla risposta (05/11/2026, Federico: variante B): disegno intero con le figure delle tavole
+              // approvate, file in lavori/<id>/scene/ con width e height già proporzionati (max 420 × 260)
+              <div style={{ display: "flex", alignItems: "center", gap: 36 }}>
+                <Img src={staticFile(s.scena)} style={{ maxWidth: 420, maxHeight: 260, flex: "none" }} />
+                <div style={{ color: t.corpo, fontSize: 44, fontWeight: 500, lineHeight: 1.4 }}>{s.corpo}</div>
+              </div>
+            ) : (
+              <div style={{ color: t.corpo, fontSize: s.segni ? 42 : 44, fontWeight: s.segni ? 600 : 500, lineHeight: s.segni ? 1.35 : 1.4 }}>{s.corpo}</div>
+            )}
             {s.segni ? (
               <div style={{ background: "white", borderRadius: 18, padding: "22px 30px", marginTop: 22, display: "flex", gap: 30, alignItems: "center" }}>
                 {s.figura === "gomito" ? (

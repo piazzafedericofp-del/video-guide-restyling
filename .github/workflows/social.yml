@@ -204,6 +204,8 @@ jobs:
             mkdir -p public/tavole && cp ../media/social/tavole/*.* public/tavole/
             if [ -d "../media/social/lavori/$ID/tavole" ]; then cp -R "../media/social/lavori/$ID/tavole/." public/tavole/; fi
           fi
+          # Scena della slide 2 (05/11/2026, variante B): disegni con le figure delle tavole, in lavori/<id>/scene/
+          if [ -d "../media/social/lavori/$ID/scene" ]; then mkdir -p public/scene && cp ../media/social/lavori/$ID/scene/*.svg public/scene/; fi
           mkdir -p out/consegna
           # Foto: girato, clip, immagine in dashboard (r2:) o generata con l'IA (ia, campo prompt)
           bash scripts/social/prepara-foto.sh "$ID" "$D"
