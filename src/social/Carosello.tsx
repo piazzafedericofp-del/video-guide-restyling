@@ -75,13 +75,14 @@ export const NumeroLegenda: React.FC<{
   <>
     <div style={{ color: testo, fontSize: 60, fontWeight: 800, lineHeight: 1.14, marginBottom: 30, whiteSpace: "pre-line" }}>{lega(chi)}</div>
     {children}
-    <div style={{ display: "grid", gridTemplateColumns: "auto auto 1fr", columnGap: 20, rowGap: 26, alignItems: "center", marginTop: 6 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 22, marginTop: 6 }}>
+      {/* una riga = una frase: omino (centrato in una colonna fissa), numero e testo di seguito (05/11/2026: «allinea meglio 1…») */}
       {([[colore, su, cosa, true], [OMINO_GRIGIO, totale - su, altri, false]] as const).filter((r) => r[2]).map(([col, num, txt, primo]) => (
-        <React.Fragment key={String(primo)}>
-          <Omino lato={primo ? 60 : 48} colore={col} />
-          <span style={{ color: primo ? colore : debole, fontSize: primo ? 96 : 64, fontWeight: 900, letterSpacing: "-0.03em", lineHeight: 1, textAlign: "right" }}>{num}</span>
+        <div key={String(primo)} style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          <div style={{ width: 60, display: "flex", justifyContent: "center", flex: "none" }}><Omino lato={primo ? 60 : 48} colore={col} /></div>
+          <span style={{ color: primo ? colore : debole, fontSize: primo ? 96 : 64, fontWeight: 900, letterSpacing: "-0.03em", lineHeight: 1, flex: "none" }}>{num}</span>
           <span style={{ color: primo ? testo : debole, fontSize: primo ? 46 : 40, fontWeight: primo ? 800 : 650, lineHeight: 1.15 }}>{lega(String(txt))}</span>
-        </React.Fragment>
+        </div>
       ))}
     </div>
   </>
