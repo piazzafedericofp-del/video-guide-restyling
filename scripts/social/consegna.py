@@ -6,6 +6,7 @@ Uscite attese: Reel → video.mp4, copertina.jpg · Carosello → c45/slide-NN.j
 Con i testi manda anche le "caratteristiche" (come è fatto il contenuto, caratteristiche.py)."""
 import json
 import sys
+import urllib.parse
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -26,6 +27,14 @@ else:
         carica(f, f"post/{pid}/{f.name}", "image/jpeg"); k45.append(f"post/{pid}/{f.name}")
     for f in sorted((uscite / "c45").glob("slide-*.mp4")):
         carica(f, f"post/{pid}/{f.name}", "video/mp4")
+    # 05/11/2026: una slide che in questo render non è animata non deve tenere il video di un render precedente
+    # (dopo un riordino il video vecchio restava con lo stesso numero e Instagram mostrava la slide sbagliata)
+    for f in sorted((uscite / "c45").glob("slide-*.jpg")):
+        if not f.with_suffix(".mp4").exists():
+            try:
+                chiama(f"/api/media/{urllib.parse.quote(f'post/{pid}/{f.stem}.mp4', safe='')}", "DELETE", ripeti=False)
+            except Exception as e:  # noqa: BLE001
+                print(f"Video vecchio di {f.stem} non tolto: {e}", file=sys.stderr)
     for f in sorted((uscite / "c916").glob("slide-*.jpg")):
         carica(f, f"post/{pid}/tt/{f.name}", "image/jpeg"); k916.append(f"post/{pid}/tt/{f.name}")
     campi |= {"slide_keys": json.dumps(k45), "slide_keys_tt": json.dumps(k916), "media_key": k45[0], "copertina_key": k45[0],
