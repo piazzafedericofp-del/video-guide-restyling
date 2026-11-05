@@ -92,7 +92,7 @@ export type Slide =
   | { tipo: "copertina"; occhiello: string; titolo: string; evidenza: string; sotto: string; foto?: string; fotoIA?: boolean }
   // segni, figura, ponte (05/11/2026, Federico, variante Y): la risposta in una riga, i segni in un riquadro con la
   // figura accanto (nuca accesa da un lato), e una riga che porta alla slide degli studi; senza la foto della copertina
-  | { tipo: "testo"; titolo: string; corpo: string; referto?: { intestazione: string; riga: string; evidenza: string }; segni?: { titolo: string; voci: string[] }; figura?: "nuca"; ponte?: string }
+  | { tipo: "testo"; titolo: string; corpo: string; referto?: { intestazione: string; riga: string; evidenza: string }; segni?: { titolo: string; voci: string[] }; figura?: "nuca" | "gomito" | "tallone"; ponte?: string }
   // chi, cosa, altri (04/11/2026, variante B scelta da Federico): con un pittogramma, il numero non sta più da solo in
   // alto ma nella legenda accanto all'omino colorato, sotto "chi" (le persone); la frase allora non serve.
   | { tipo: "dato"; etichetta: string; numero?: string; frase?: string; chi?: string; cosa?: string; altri?: string; nota?: string; fonte: string; illustrazione?: Illustrazione }
@@ -430,6 +430,7 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
               <div style={{ width: 120, height: 10, background: AMBER_400, borderRadius: 5, margin: "40px 0" }} />
             )}
             <div style={{ color: t.corpo, fontSize: 42, fontWeight: 500, lineHeight: 1.38 }}>{s.corpo}</div>
+            {s.ponte ? <div style={{ color: BRAND_700, fontSize: 42, fontWeight: 800, marginTop: 28 }}>{s.ponte}</div> : null}
           </div>
         </Cornice>
       </AbsoluteFill>
@@ -458,6 +459,24 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
             <div style={{ color: t.corpo, fontSize: s.segni ? 42 : 44, fontWeight: s.segni ? 600 : 500, lineHeight: s.segni ? 1.35 : 1.4 }}>{s.corpo}</div>
             {s.segni ? (
               <div style={{ background: "white", borderRadius: 18, padding: "22px 30px", marginTop: 22, display: "flex", gap: 30, alignItems: "center" }}>
+                {s.figura === "gomito" ? (
+                  // braccio piegato visto di lato, l'esterno del gomito acceso (gomito del tennista)
+                  <svg width={200} height={240} viewBox="0 0 200 240" style={{ flex: "none" }}>
+                    <defs><radialGradient id="dolore-gomito"><stop offset="0" stopColor="#F59E0B" stopOpacity="0.9" /><stop offset="1" stopColor="#F59E0B" stopOpacity="0" /></radialGradient></defs>
+                    <path d="M40 20 L82 20 L96 150 Q98 172 80 176 L58 176 Z" fill="#E9DFCF" />
+                    <path d="M62 150 Q66 128 90 132 L176 150 Q190 154 188 170 Q186 184 170 182 L84 178 Q62 176 62 150 Z" fill="#E0D3BE" />
+                    <ellipse cx="184" cy="166" rx="14" ry="18" fill="#E9DFCF" />
+                    <ellipse cx="80" cy="160" rx="34" ry="30" fill="url(#dolore-gomito)" />
+                  </svg>
+                ) : null}
+                {s.figura === "tallone" ? (
+                  // piede visto di lato, la parte sotto il tallone accesa (fascite plantare)
+                  <svg width={200} height={240} viewBox="0 0 200 240" style={{ flex: "none" }}>
+                    <defs><radialGradient id="dolore-tallone"><stop offset="0" stopColor="#F59E0B" stopOpacity="0.9" /><stop offset="1" stopColor="#F59E0B" stopOpacity="0" /></radialGradient></defs>
+                    <path d="M40 20 L80 20 L84 150 Q86 168 98 176 L176 196 Q194 202 190 214 Q186 224 168 222 L56 222 Q30 220 32 196 Z" fill="#E9DFCF" />
+                    <ellipse cx="58" cy="216" rx="34" ry="22" fill="url(#dolore-tallone)" />
+                  </svg>
+                ) : null}
                 {s.figura === "nuca" ? (
                   // testa vista da dietro, la nuca accesa da un lato: il segno più tipico del mal di testa che parte dal collo
                   <svg width={200} height={240} viewBox="0 0 200 240" style={{ flex: "none" }}>
