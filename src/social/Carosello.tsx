@@ -73,7 +73,7 @@ export const NumeroLegenda: React.FC<{
   colore: string; testo: string; debole: string; children: React.ReactNode;
 }> = ({ chi, cosa, altri, su, totale, colore, testo, debole, children }) => (
   <>
-    <div style={{ color: testo, fontSize: 60, fontWeight: 800, lineHeight: 1.14, marginBottom: 30 }}>{lega(chi)}</div>
+    <div style={{ color: testo, fontSize: 60, fontWeight: 800, lineHeight: 1.14, marginBottom: 30, whiteSpace: "pre-line" }}>{lega(chi)}</div>
     {children}
     <div style={{ display: "grid", gridTemplateColumns: "auto auto 1fr", columnGap: 20, rowGap: 26, alignItems: "center", marginTop: 6 }}>
       {([[colore, su, cosa, true], [OMINO_GRIGIO, totale - su, altri, false]] as const).filter((r) => r[2]).map(([col, num, txt, primo]) => (
