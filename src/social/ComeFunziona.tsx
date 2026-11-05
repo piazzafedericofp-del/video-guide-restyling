@@ -283,10 +283,21 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
           <div style={{ color: t.titolo, fontSize: 70, fontWeight: 800, lineHeight: 1.1, marginBottom: 44 }}>{s.titolo}</div>
           {s.voci.map((v) => (
             <div key={v} style={{ display: "flex", gap: 28, alignItems: "flex-start", marginBottom: 34 }}>
-              <div style={{ flex: "none", width: 60, height: 60, borderRadius: 30, background: AMBER_400, color: NAVY_800, fontSize: 36, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", marginTop: 2 }}>!</div>
+              {s.segno === "attenzione" ? (
+                <div style={{ flex: "none", width: 60, height: 60, borderRadius: 30, background: AMBER_400, color: NAVY_800, fontSize: 36, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", marginTop: 2 }}>!</div>
+              ) : (
+                // sintesi «cosa fare» dopo il dato (05/11/2026, Federico: le indicazioni utili alla fine della storia)
+                <svg width={60} height={60} viewBox="0 0 60 60" style={{ flex: "none", marginTop: 2 }}><circle cx="30" cy="30" r="30" fill={BRAND_700} /><path d="M17 31 L26 40 L44 21" fill="none" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              )}
               <div style={{ color: t.titolo, fontSize: 42, fontWeight: 600, lineHeight: 1.3, ...RIGHE }}>{v}</div>
             </div>
           ))}
+          {s.segno !== "attenzione" && s.nota ? (
+            <div style={{ alignSelf: "flex-start", marginTop: 10, background: AMBER_400, color: NAVY_800, fontSize: 32, fontWeight: 700, padding: "14px 24px", borderRadius: 10, display: "flex", alignItems: "center", gap: 14 }}>
+              <IconaSalva />
+              {s.nota.replace(/\s*🔖\s*$/u, "")}
+            </div>
+          ) : null}
         </div>
       </Colonna>
     ));
