@@ -22,6 +22,9 @@ export type Stile = "sito" | "navy" | "foto";
 export type NomeIcona = "letto" | "cammina" | "posizione" | "casa" | "pillola" | "clessidra" | "pesi" | "telefono" | "referto" | "risonanza";
 export type Illustrazione =
   | { tipo: "pittogramma"; su: number; totale: number }
+  // effetto (05/11/2026, Federico, variante A su 3): cosa migliora con il trattamento, una freccia giù per voce
+  // («arriva meno spesso», «fa meno male»); al posto di «tempi» quando il tempo conta meno del risultato
+  | { tipo: "effetto"; titolo: string; voci: string[] }
   | { tipo: "confronto"; a: { icona: NomeIcona; testo: string; esito?: string }; b: { icona: NomeIcona; testo: string; esito: string } }
   // Risultato che cambia nel tempo (fascite 23/10: "meglio prima, non di più" non si capiva con il confronto):
   // una scheda per controllo, i due gruppi in ogni scheda, evidenziato quello che sta meglio (nessuno se pari).
@@ -509,6 +512,17 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
             {omini}
             {s.frase ? <div style={{ color: t.titolo, fontSize: s.numero ? 56 : barre ? 64 : 66, fontWeight: 750, lineHeight: barre ? 1.16 : 1.18 }}>{s.frase}</div> : null}
             </>)}
+            {s.illustrazione?.tipo === "effetto" ? (() => { const e = s.illustrazione; return (
+              <div style={{ background: t.card, borderRadius: 18, padding: "28px 34px", marginTop: 36 }}>
+                <div style={{ color: NAVY_800, fontSize: 38, fontWeight: 800, marginBottom: 18 }}>{e.titolo}</div>
+                {e.voci.map((v, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 26, marginTop: i ? 14 : 0 }}>
+                    <svg width={70} height={70} viewBox="0 0 84 84" style={{ flex: "none" }}><circle cx="42" cy="42" r="42" fill="#E3EEFB" /><path d="M42 20 V60 M26 46 L42 62 L58 46" fill="none" stroke={BRAND_700} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    <div style={{ color: NAVY_800, fontSize: 44, fontWeight: 800 }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            ); })() : null}
             {conf ? (
               <div style={{ display: "flex", alignItems: "stretch", gap: 24, marginTop: 44 }}>
                 <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 20, background: t.card, borderRadius: 14, padding: "22px 26px" }}>
