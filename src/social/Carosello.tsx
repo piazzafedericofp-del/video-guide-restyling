@@ -32,7 +32,7 @@ export type Illustrazione =
   // Proporzioni a confronto (es. per età): barre su 100, il valore detto a parole accanto
   // scala (04/11/2026, Federico: «non si capisce subito che il numero è riferito alla scala di dolore»): per un punteggio
   // (dolore da 0 a 100) titolo sopra le barre e righello sotto, con gli estremi detti a parole; mai «52 su 100»
-  | { tipo: "barre"; righe: { etichetta: string; valore: number; testo: string }[]; scala?: { titolo?: string; da: string; a: string } };
+  | { tipo: "barre"; righe: { etichetta: string; valore: number; testo: string; evidenza?: boolean }[]; scala?: { titolo?: string; da?: string; a?: string } };
 
 // Icone a tratto in stile Lucide (viewBox 24), disegnate qui per non aggiungere dipendenze.
 const TRATTI: Record<NomeIcona, React.ReactNode> = {
@@ -457,7 +457,7 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
             ) : (
               <div style={{ width: 120, height: 10, background: AMBER_400, borderRadius: 5, margin: "48px 0" }} />
             )}
-            {s.scena ? (
+            {s.scena && !s.segni ? (
               // scena accanto alla risposta (05/11/2026, Federico: variante B): disegno intero con le figure delle tavole
               // approvate, file in lavori/<id>/scene/ con width e height già proporzionati (max 420 × 260)
               <div style={{ display: "flex", alignItems: "center", gap: 36 }}>
@@ -469,6 +469,8 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
             )}
             {s.segni ? (
               <div style={{ background: "white", borderRadius: 18, padding: "22px 30px", marginTop: 22, display: "flex", gap: 30, alignItems: "center" }}>
+                {/* scena nel riquadro dei segni (gomito, 05/11/2026): il gesto del segno, con le figure delle tavole */}
+                {s.scena ? <Img src={staticFile(s.scena)} style={{ width: 200, height: 240, flex: "none" }} /> : null}
                 {s.figura === "gomito" ? (
                   // braccio piegato visto di lato, l'esterno del gomito acceso (gomito del tennista)
                   <svg width={200} height={240} viewBox="0 0 200 240" style={{ flex: "none" }}>
@@ -602,7 +604,8 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
                 {barre.scala?.titolo ? <div style={{ color: NAVY_800, fontSize: 40, fontWeight: 800, marginBottom: -6 }}>{barre.scala.titolo}</div> : null}
                 {barre.righe.map((b, i) => {
                   const p = entra(f, fps, 0.5 + i * 0.9);
-                  const ultima = i === barre.righe.length - 1;
+                  // la barra colorata è quella da far vedere (`evidenza`), che può stare per prima (gomito, Federico 05/11/2026); senza, l'ultima
+                  const ultima = barre.righe.some((r) => r.evidenza) ? !!b.evidenza : i === barre.righe.length - 1;
                   const alta = barre.righe.length > 3 ? 52 : barre.scala ? 64 : 88;
                   return (
                     <div key={i}>
@@ -616,7 +619,8 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
                     </div>
                   );
                 })}
-                {barre.scala ? (
+                {/* solo il titolo, senza righello, quando le barre contano persone (gomito, 05/11/2026) */}
+                {barre.scala?.da && barre.scala?.a ? (
                   // il righello: gli estremi della scala sotto l'ultima barra, allineati ai suoi bordi
                   <div style={{ marginTop: -14 }}>
                     <div style={{ height: 14, borderLeft: `3px solid ${SLATE_500}`, borderRight: `3px solid ${SLATE_500}`, borderBottom: `3px solid ${SLATE_500}` }} />
