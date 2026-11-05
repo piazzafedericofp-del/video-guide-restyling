@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, Img, OffthreadVideo, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
-import { Carosello, durataAnimata, NumeroLegenda, OMINO_GRIGIO, type CaroselloProps, type Slide } from "./Carosello";
+import { Carosello, durataAnimata, lega, NumeroLegenda, OMINO_GRIGIO, type CaroselloProps, type Slide } from "./Carosello";
 import { durataTavola, Omino, SCALA_VERTICALE, useDisegni, type SlideTavola } from "./Tavole";
 
 // Rubrica «Come funziona» (skill carosello-social, variante «Come funziona»): l'articolo del blog in carosello, con le
@@ -289,7 +289,7 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
                 // sintesi «cosa fare» dopo il dato (05/11/2026, Federico: le indicazioni utili alla fine della storia)
                 <svg width={60} height={60} viewBox="0 0 60 60" style={{ flex: "none", marginTop: 2 }}><circle cx="30" cy="30" r="30" fill={BRAND_700} /><path d="M17 31 L26 40 L44 21" fill="none" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" /></svg>
               )}
-              <div style={{ color: t.titolo, fontSize: 42, fontWeight: 600, lineHeight: 1.3, ...RIGHE }}>{v}</div>
+              <div style={{ color: t.titolo, fontSize: 42, fontWeight: 600, lineHeight: 1.3, ...RIGHE }}>{lega(v)}</div>
             </div>
           ))}
           {s.segno !== "attenzione" && s.nota ? (

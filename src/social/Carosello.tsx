@@ -125,7 +125,7 @@ const PAROLE_CORTE = new RegExp(
 );
 // e un numero resta con la sua unità ("6 mesi", "14 giorni", "2 su 3"; fascite 03/11/2026: «A 6 / mesi»)
 const UNITA = /(\d) (?=(su|mesi|mese|giorni|giorno|settimane|settimana|anni|anno|ore|ora|minuti|secondi|volte|persone|persona|studi|serie|ripetizioni)([\s\u00a0.,;:!?)]|$))/g;
-const lega = (t: string) => t.replace(PAROLE_CORTE, "$1\u00a0").replace(UNITA, "$1\u00a0");
+export const lega = (t: string) => t.replace(PAROLE_CORTE, "$1\u00a0").replace(UNITA, "$1\u00a0");
 const legaSlide = (s: Slide): Slide => {
   const x = { ...s } as Record<string, unknown>;
   const campi = ["sotto", "frase", "corpo", "nota", "invito", "chi", "cosa", "altri", ...("evidenza" in x && x.evidenza ? [] : ["titolo"])];
