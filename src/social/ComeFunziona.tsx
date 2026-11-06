@@ -266,7 +266,7 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
           {s.illustrazione?.tipo === "barre" ? (() => { const barre = s.illustrazione; return (
             <div style={{ display: "flex", flexDirection: "column", gap: 30, marginTop: 44 }}>
               {barre.scala?.titolo ? <div style={{ color: NAVY_800, fontSize: 40, fontWeight: 800, marginBottom: -6 }}>{barre.scala.titolo}</div> : null}
-              {barre.righe.map((b, i) => { const ultima = i === barre.righe.length - 1; return (
+              {barre.righe.map((b, i) => { const ultima = barre.righe.some((r) => r.evidenza) ? !!b.evidenza : i === barre.righe.length - 1; return (
                 <div key={i}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
                     <div style={{ color: "#475569", fontSize: 36, fontWeight: 700 }}>{b.etichetta}</div>
@@ -276,7 +276,7 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
                     <div style={{ width: `${b.valore}%`, height: "100%", borderRadius: 16, background: ultima ? BRAND_700 : "#5B6472" }} />
                   </div>
                 </div>); })}
-              {barre.scala ? (
+              {barre.scala?.da && barre.scala?.a ? (
                 <div style={{ marginTop: -14 }}>
                   <div style={{ height: 14, borderLeft: "3px solid #5B6472", borderRight: "3px solid #5B6472", borderBottom: "3px solid #5B6472" }} />
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, color: "#475569", fontSize: 32, fontWeight: 700 }}><span>{barre.scala.da}</span><span>{barre.scala.a}</span></div>
