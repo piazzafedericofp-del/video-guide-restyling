@@ -282,6 +282,17 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, color: "#475569", fontSize: 32, fontWeight: 700 }}><span>{barre.scala.da}</span><span>{barre.scala.a}</span></div>
                 </div>) : null}
             </div>); })() : null}
+          {/* effetto (anca, Federico 06/11/2026: «senza niente è spoglia»): cosa migliora, senza numeri, come in Carosello */}
+          {s.illustrazione?.tipo === "effetto" ? (() => { const e = s.illustrazione; return (
+            <div style={{ background: t.carta, borderRadius: 18, padding: "28px 34px", marginTop: 40 }}>
+              <div style={{ color: NAVY_800, fontSize: 38, fontWeight: 800, marginBottom: 18 }}>{e.titolo}</div>
+              {e.voci.map((v, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 26, marginTop: i ? 14 : 0 }}>
+                  <svg width={70} height={70} viewBox="0 0 84 84" style={{ flex: "none" }}><circle cx="42" cy="42" r="42" fill="#E3EEFB" /><path d={e.frecce?.[i] === "su" ? "M42 64 V24 M26 38 L42 22 L58 38" : "M42 20 V60 M26 46 L42 62 L58 46"} fill="none" stroke={BRAND_700} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  <div style={{ color: NAVY_800, fontSize: 44, fontWeight: 800 }}>{v}</div>
+                </div>
+              ))}
+            </div>); })() : null}
           {s.nota ? <div style={{ background: t.carta, borderLeft: `8px solid ${AMBER_400}`, borderRadius: 12, padding: "24px 30px", marginTop: 36, color: t.titolo, fontSize: 38, fontWeight: 600, lineHeight: 1.35, ...RIGHE }}>{s.nota}</div> : null}
           <div style={{ color: t.debole, fontSize: 28, fontWeight: 500, lineHeight: 1.4, marginTop: 30 }}>Fonte: {s.fonte}</div>
           {s.salva ? (
