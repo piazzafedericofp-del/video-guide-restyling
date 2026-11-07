@@ -74,7 +74,7 @@ export const NumeroLegenda: React.FC<{
   colore: string; testo: string; debole: string; children: React.ReactNode;
 }> = ({ chi, cosa, altri, su, totale, colore, testo, debole, children }) => (
   <>
-    <div style={{ color: testo, fontSize: 60, fontWeight: 800, lineHeight: 1.14, marginBottom: 30, whiteSpace: "pre-line" }}>{lega(chi)}</div>
+    <div style={{ textWrap: "pretty", color: testo, fontSize: 60, fontWeight: 800, lineHeight: 1.14, marginBottom: 30, whiteSpace: "pre-line" }}>{lega(chi)}</div>
     {children}
     <div style={{ display: "flex", flexDirection: "column", gap: 22, marginTop: 6 }}>
       {/* una riga = una frase: omino (centrato in una colonna fissa), numero e testo di seguito (05/11/2026: «allinea meglio 1…») */}
@@ -82,7 +82,7 @@ export const NumeroLegenda: React.FC<{
         <div key={String(primo)} style={{ display: "flex", alignItems: "center", gap: 20 }}>
           <div style={{ width: 60, display: "flex", justifyContent: "center", flex: "none" }}><Omino lato={primo ? 60 : 48} colore={col} /></div>
           <span style={{ color: primo ? colore : debole, fontSize: primo ? 96 : 64, fontWeight: 900, letterSpacing: "-0.03em", lineHeight: 1, flex: "none" }}>{num}</span>
-          <span style={{ color: primo ? testo : debole, fontSize: primo ? 46 : 40, fontWeight: primo ? 800 : 650, lineHeight: 1.15 }}>{lega(String(txt))}</span>
+          <span style={{ textWrap: "pretty", color: primo ? testo : debole, fontSize: primo ? 46 : 40, fontWeight: primo ? 800 : 650, lineHeight: 1.15 }}>{lega(String(txt))}</span>
         </div>
       ))}
     </div>
@@ -367,10 +367,10 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
             <div style={{ display: "inline-block", color: "white", background: "rgba(11,36,71,0.8)", border: "2px solid rgba(255,255,255,0.35)", fontSize: 28, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", padding: "8px 18px", borderRadius: 8, marginBottom: 26 }}>
               {s.occhiello}
             </div>
-            <div style={{ color: "white", fontSize: 100, fontWeight: 800, lineHeight: 1.12, whiteSpace: "pre-line" }}>
+            <div style={{ textWrap: "pretty", color: "white", fontSize: 100, fontWeight: 800, lineHeight: 1.12, whiteSpace: "pre-line" }}>
               <TitoloCopertina testo={s.titolo} evidenza={s.evidenza} />
             </div>
-            <div style={{ color: "#E2E8F0", fontSize: 36, fontWeight: 500, lineHeight: 1.35, marginTop: 30 }}>{s.sotto}</div>
+            <div style={{ textWrap: "pretty", color: "#E2E8F0", fontSize: 36, fontWeight: 500, lineHeight: 1.35, marginTop: 30 }}>{s.sotto}</div>
           </div>
         </Cornice>
       </AbsoluteFill>
@@ -387,10 +387,10 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
               {s.occhiello}
             </div>
             <div style={{ width: 120, height: 10, background: AMBER_400, borderRadius: 5, marginBottom: 48 }} />
-            <div style={{ color: t.titolo, fontSize: 132, fontWeight: 800, lineHeight: 1.02, whiteSpace: "pre-line" }}>
+            <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 132, fontWeight: 800, lineHeight: 1.02, whiteSpace: "pre-line" }}>
               <ConEvidenza testo={s.titolo} evidenza={s.evidenza} colore={scuro ? AMBER_400 : BRAND_700} />
             </div>
-            <div style={{ color: t.corpo, fontSize: 40, fontWeight: 500, lineHeight: 1.35, marginTop: 44, maxWidth: 820 }}>{s.sotto}</div>
+            <div style={{ textWrap: "pretty", color: t.corpo, fontSize: 40, fontWeight: 500, lineHeight: 1.35, marginTop: 44, maxWidth: 820 }}>{s.sotto}</div>
           </div>
           {storia ? null : (
             <div style={{ position: "absolute", right: 90, bottom: 150, color: scuro ? NAVY_800 : "white", background: scuro ? AMBER_400 : BRAND_700, fontSize: 32, fontWeight: 700, padding: "16px 30px", borderRadius: 50 }}>
@@ -416,7 +416,7 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
         ) : null}
         <Cornice n={n} tot={tot} colore={t.debole} suFoto>
           <div style={{ position: "absolute", left: 90, right: 90, top: 330 }}>
-            <div style={{ color: t.titolo, fontSize: 74, fontWeight: 800, lineHeight: 1.1 }}>{s.titolo}</div>
+            <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 74, fontWeight: 800, lineHeight: 1.1 }}>{s.titolo}</div>
             {s.referto ? (
               <div style={{ margin: "38px 0", background: "white", border: "2px solid #E2E8F0", borderRadius: 18, padding: "30px 36px", boxShadow: "0 16px 40px rgba(11,36,71,0.12)", transform: "rotate(-1.2deg)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -424,15 +424,15 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
                   <div style={{ color: SLATE_500, fontSize: 28, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>{s.referto.intestazione}</div>
                 </div>
                 <div style={{ height: 12, width: "70%", background: "#E2E8F0", borderRadius: 6, marginTop: 20 }} />
-                <div style={{ color: NAVY_800, fontSize: 41, fontWeight: 700, lineHeight: 1.3, marginTop: 18 }}>
+                <div style={{ textWrap: "pretty", color: NAVY_800, fontSize: 41, fontWeight: 700, lineHeight: 1.3, marginTop: 18 }}>
                   <ConEvidenza testo={s.referto.riga} evidenza={s.referto.evidenza} colore={NAVY_800} sfondo={AMBER_100} />
                 </div>
               </div>
             ) : (
               <div style={{ width: 120, height: 10, background: AMBER_400, borderRadius: 5, margin: "40px 0" }} />
             )}
-            <div style={{ color: t.corpo, fontSize: 42, fontWeight: 500, lineHeight: 1.38 }}>{s.corpo}</div>
-            {s.ponte ? <div style={{ color: BRAND_700, fontSize: 42, fontWeight: 800, marginTop: 28 }}>{s.ponte}</div> : null}
+            <div style={{ textWrap: "pretty", color: t.corpo, fontSize: 42, fontWeight: 500, lineHeight: 1.38 }}>{s.corpo}</div>
+            {s.ponte ? <div style={{ textWrap: "pretty", color: BRAND_700, fontSize: 42, fontWeight: 800, marginTop: 28 }}>{s.ponte}</div> : null}
           </div>
         </Cornice>
       </AbsoluteFill>
@@ -444,13 +444,13 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
       <AbsoluteFill style={base}>
         <Cornice n={n} tot={tot} colore={t.debole}>
           <div style={{ position: "absolute", left: 90, right: 90, top: 0, bottom: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-            <div style={{ color: t.titolo, fontSize: 76, fontWeight: 800, lineHeight: 1.1 }}>{s.titolo}</div>
+            <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 76, fontWeight: 800, lineHeight: 1.1 }}>{s.titolo}</div>
             {s.referto ? (
               // Il referto disegnato come un foglio: mostra la cosa di cui si parla, senza anatomia
               <div style={{ margin: "44px 0", background: "white", border: "2px solid #E2E8F0", borderRadius: 16, padding: "28px 34px", boxShadow: "0 10px 30px rgba(11,36,71,0.08)" }}>
                 <div style={{ color: SLATE_500, fontSize: 28, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>{s.referto.intestazione}</div>
                 <div style={{ height: 12, width: "70%", background: "#E2E8F0", borderRadius: 6, marginTop: 22 }} />
-                <div style={{ color: NAVY_800, fontSize: 40, fontWeight: 700, lineHeight: 1.3, marginTop: 20 }}>
+                <div style={{ textWrap: "pretty", color: NAVY_800, fontSize: 40, fontWeight: 700, lineHeight: 1.3, marginTop: 20 }}>
                   <ConEvidenza testo={s.referto.riga} evidenza={s.referto.evidenza} colore={NAVY_800} sfondo={AMBER_100} />
                 </div>
                 <div style={{ height: 12, width: "55%", background: "#E2E8F0", borderRadius: 6, marginTop: 22 }} />
@@ -463,10 +463,10 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
               // approvate, file in lavori/<id>/scene/ con width e height già proporzionati (max 420 × 260)
               <div style={{ display: "flex", alignItems: "center", gap: 36 }}>
                 <Img src={staticFile(s.scena)} style={{ maxWidth: 420, maxHeight: 260, flex: "none" }} />
-                <div style={{ color: t.corpo, fontSize: 44, fontWeight: 500, lineHeight: 1.4 }}>{s.corpo}</div>
+                <div style={{ textWrap: "pretty", color: t.corpo, fontSize: 44, fontWeight: 500, lineHeight: 1.4 }}>{s.corpo}</div>
               </div>
             ) : (
-              <div style={{ color: t.corpo, fontSize: s.segni ? 42 : 44, fontWeight: s.segni ? 600 : 500, lineHeight: s.segni ? 1.35 : 1.4 }}>{s.corpo}</div>
+              <div style={{ textWrap: "pretty", color: t.corpo, fontSize: s.segni ? 42 : 44, fontWeight: s.segni ? 600 : 500, lineHeight: s.segni ? 1.35 : 1.4 }}>{s.corpo}</div>
             )}
             {s.segni ? (
               <div style={{ background: "white", borderRadius: 18, padding: "22px 30px", marginTop: 22, display: "flex", gap: 30, alignItems: "center" }}>
@@ -501,17 +501,17 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
                   </svg>
                 ) : null}
                 <div style={{ flex: 1 }}>
-                  <div style={{ color: NAVY_800, fontSize: 40, fontWeight: 800, marginBottom: 18 }}>{s.segni.titolo}</div>
+                  <div style={{ textWrap: "pretty", color: NAVY_800, fontSize: 40, fontWeight: 800, marginBottom: 18 }}>{s.segni.titolo}</div>
                   {s.segni.voci.map((v, i) => (
                     <div key={i} style={{ display: "flex", gap: 20, alignItems: "center", marginTop: i ? 14 : 0 }}>
                       <svg width={44} height={44} viewBox="0 0 60 60" style={{ flex: "none", marginTop: 2 }}><circle cx="30" cy="30" r="30" fill={BRAND_700} /><path d="M17 31 L26 40 L44 21" fill="none" stroke="white" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                      <div style={{ color: NAVY_800, fontSize: 44, fontWeight: 700, lineHeight: 1.2 }}>{lega(v)}</div>
+                      <div style={{ textWrap: "pretty", color: NAVY_800, fontSize: 44, fontWeight: 700, lineHeight: 1.2 }}>{lega(v)}</div>
                     </div>
                   ))}
                 </div>
               </div>
             ) : null}
-            {s.ponte ? <div style={{ color: BRAND_700, fontSize: 42, fontWeight: 800, marginTop: 30 }}>{s.ponte}</div> : null}
+            {s.ponte ? <div style={{ textWrap: "pretty", color: BRAND_700, fontSize: 42, fontWeight: 800, marginTop: 30 }}>{s.ponte}</div> : null}
           </div>
         </Cornice>
       </AbsoluteFill>
@@ -569,15 +569,15 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
               <div style={{ color: t.accento, fontSize: pitto || s.numero.length > 8 ? 136 : 200, fontWeight: 900, lineHeight: 1, letterSpacing: "-0.04em", marginBottom: 30 }}>{s.numero}</div>
             ) : null}
             {omini}
-            {s.frase ? <div style={{ color: t.titolo, fontSize: s.numero ? 56 : barre ? 64 : 66, fontWeight: 750, lineHeight: barre ? 1.16 : 1.18 }}>{s.frase}</div> : null}
+            {s.frase ? <div style={{ textWrap: "pretty", color: t.titolo, fontSize: s.numero ? 56 : barre ? 64 : 66, fontWeight: 750, lineHeight: barre ? 1.16 : 1.18 }}>{s.frase}</div> : null}
             </>)}
             {s.illustrazione?.tipo === "effetto" ? (() => { const e = s.illustrazione; return (
               <div style={{ background: t.card, borderRadius: 18, padding: "28px 34px", marginTop: 36 }}>
-                <div style={{ color: NAVY_800, fontSize: 38, fontWeight: 800, marginBottom: 18 }}>{e.titolo}</div>
+                <div style={{ textWrap: "pretty", color: NAVY_800, fontSize: 38, fontWeight: 800, marginBottom: 18 }}>{e.titolo}</div>
                 {e.voci.map((v, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 26, marginTop: i ? 14 : 0 }}>
                     <svg width={70} height={70} viewBox="0 0 84 84" style={{ flex: "none" }}><circle cx="42" cy="42" r="42" fill="#E3EEFB" /><path d={e.frecce?.[i] === "su" ? "M42 64 V24 M26 38 L42 22 L58 38" : "M42 20 V60 M26 46 L42 62 L58 46"} fill="none" stroke={BRAND_700} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    <div style={{ color: NAVY_800, fontSize: 44, fontWeight: 800 }}>{v}</div>
+                    <div style={{ textWrap: "pretty", color: NAVY_800, fontSize: 44, fontWeight: 800 }}>{v}</div>
                   </div>
                 ))}
               </div>
@@ -587,22 +587,22 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
                 <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 20, background: t.card, borderRadius: 14, padding: "22px 26px" }}>
                   <Icona nome={conf.a.icona} lato={64} colore={SLATE_500} />
                   <div>
-                    <div style={{ color: SLATE_600, fontSize: 34, fontWeight: 700 }}>{conf.a.testo}</div>
-                    {conf.a.esito ? <div style={{ color: SLATE_600, fontSize: 28, fontWeight: 600, marginTop: 4 }}>{conf.a.esito}</div> : null}
+                    <div style={{ textWrap: "pretty", color: SLATE_600, fontSize: 34, fontWeight: 700 }}>{conf.a.testo}</div>
+                    {conf.a.esito ? <div style={{ textWrap: "pretty", color: SLATE_600, fontSize: 28, fontWeight: 600, marginTop: 4 }}>{conf.a.esito}</div> : null}
                   </div>
                 </div>
                 <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 20, background: "#E3EEFB", borderRadius: 14, padding: "22px 26px" }}>
                   <Icona nome={conf.b.icona} lato={64} colore={BRAND_700} />
                   <div>
-                    <div style={{ color: NAVY_800, fontSize: 34, fontWeight: 800 }}>{conf.b.testo}</div>
-                    <div style={{ color: "#0A57AD", fontSize: 28, fontWeight: 700, marginTop: 4 }}>{conf.b.esito}</div>
+                    <div style={{ textWrap: "pretty", color: NAVY_800, fontSize: 34, fontWeight: 800 }}>{conf.b.testo}</div>
+                    <div style={{ textWrap: "pretty", color: "#0A57AD", fontSize: 28, fontWeight: 700, marginTop: 4 }}>{conf.b.esito}</div>
                   </div>
                 </div>
               </div>
             ) : null}
             {barre ? (
               <div style={{ display: "flex", flexDirection: "column", gap: barre.righe.length > 3 ? 26 : barre.scala ? 30 : 44, marginTop: barre.scala ? 44 : 56 }}>
-                {barre.scala?.titolo ? <div style={{ color: NAVY_800, fontSize: 40, fontWeight: 800, marginBottom: -6 }}>{barre.scala.titolo}</div> : null}
+                {barre.scala?.titolo ? <div style={{ textWrap: "pretty", color: NAVY_800, fontSize: 40, fontWeight: 800, marginBottom: -6 }}>{barre.scala.titolo}</div> : null}
                 {barre.righe.map((b, i) => {
                   const p = entra(f, fps, 0.5 + i * 0.9);
                   // la barra colorata è quella da far vedere (`evidenza`), che può stare per prima (gomito, Federico 05/11/2026); senza, l'ultima
@@ -641,7 +641,7 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
                       const avanti = tp.meglio === g;
                       return (
                         <div key={g} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderRadius: 10, padding: "10px 16px", background: avanti ? "#E3EEFB" : "#FFFFFF", border: avanti ? `3px solid ${BRAND_700}` : "3px solid #E2E8F0" }}>
-                          <div style={{ color: avanti ? NAVY_800 : SLATE_600, fontSize: 32, fontWeight: avanti ? 800 : 600 }}>{tempi[g]}</div>
+                          <div style={{ textWrap: "pretty", color: avanti ? NAVY_800 : SLATE_600, fontSize: 32, fontWeight: avanti ? 800 : 600 }}>{tempi[g]}</div>
                           {avanti ? (
                             <svg width={34} height={34} viewBox="0 0 24 24" fill="none" stroke={BRAND_700} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5" /><path d="m5 12 7-7 7 7" /></svg>
                           ) : tp.meglio ? null : (
@@ -650,17 +650,17 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
                         </div>
                       );
                     })}
-                    <div style={{ color: NAVY_800, fontSize: 30, fontWeight: 800, marginTop: 4 }}>{tp.esito}</div>
+                    <div style={{ textWrap: "pretty", color: NAVY_800, fontSize: 30, fontWeight: 800, marginTop: 4 }}>{tp.esito}</div>
                   </div>
                 ))}
               </div>
             ) : null}
             {s.nota ? (
-              <div style={{ background: t.card, borderLeft: `8px solid ${AMBER_400}`, borderRadius: 12, padding: "28px 32px", marginTop: 48, color: t.titolo, fontSize: 38, fontWeight: 600, lineHeight: 1.35 }}>
+              <div style={{ textWrap: "pretty", background: t.card, borderLeft: `8px solid ${AMBER_400}`, borderRadius: 12, padding: "28px 32px", marginTop: 48, color: t.titolo, fontSize: 38, fontWeight: 600, lineHeight: 1.35 }}>
                 {s.nota}
               </div>
             ) : null}
-            <div style={{ color: t.debole, fontSize: 28, fontWeight: 500, lineHeight: 1.4, marginTop: grande ? 36 : 40 }}>Fonte: {s.fonte}</div>
+            <div style={{ textWrap: "pretty", color: t.debole, fontSize: 28, fontWeight: 500, lineHeight: 1.4, marginTop: grande ? 36 : 40 }}>Fonte: {s.fonte}</div>
           </Zona>
         </Cornice>
       </AbsoluteFill>
@@ -677,7 +677,7 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
       <AbsoluteFill style={base}>
         <Cornice n={n} tot={tot} colore={s.scuro ? "#CBD5E1" : t.debole} scuro={s.scuro}>
           <Contenuto>
-            <div style={{ color: t.titolo, fontSize: 70, fontWeight: 800, lineHeight: 1.1, marginBottom: lunga ? 40 : 44 }}>{s.titolo}</div>
+            <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 70, fontWeight: 800, lineHeight: 1.1, marginBottom: lunga ? 40 : 44 }}>{s.titolo}</div>
             {s.voci.map((v, i) => s.icone && !lunga ? (
               // D · Pratica (28/10/2026): una scheda per voce, icona grande con il segno ✓/✕
               <div key={v} style={{ display: "flex", alignItems: "center", gap: 30, background: t.card, borderRadius: 20, padding: "22px 28px", marginBottom: 22 }}>
@@ -689,7 +689,7 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
                     </svg>
                   </div>
                 </div>
-                <div style={{ color: t.titolo, fontSize: 40, fontWeight: 600, lineHeight: 1.28 }}>{v}</div>
+                <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 40, fontWeight: 600, lineHeight: 1.28 }}>{v}</div>
               </div>
             ) : (
               <div key={v} style={{ display: "flex", gap: 28, alignItems: s.icone ? "center" : "flex-start", marginBottom: lunga ? 24 : 34 }}>
@@ -709,7 +709,7 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
                   {SEGNI[s.segno]}
                 </div>
                 )}
-                <div style={{ color: t.titolo, fontSize: lunga ? 38 : 42, fontWeight: 600, lineHeight: 1.3 }}>{v}</div>
+                <div style={{ textWrap: "pretty", color: t.titolo, fontSize: lunga ? 38 : 42, fontWeight: 600, lineHeight: 1.3 }}>{v}</div>
               </div>
             ))}
             {s.nota ? (
@@ -735,7 +735,7 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
         <BarraSeServe n={n} tot={tot} />
         {/* colonna tra la barra e la firma: il video prende lo spazio che resta (titolo lungo → video più basso) */}
         <div style={{ position: "absolute", left: 90, right: 90, top: 96, bottom: 216, display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-          <div style={{ flex: "none", color: NAVY_800, fontSize: rigaPiuLunga(s.titolo) > 26 ? 60 : 72, fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.01em", marginTop: 22, whiteSpace: "pre-line" }}>
+          <div style={{ textWrap: "pretty", flex: "none", color: NAVY_800, fontSize: rigaPiuLunga(s.titolo) > 26 ? 60 : 72, fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.01em", marginTop: 22, whiteSpace: "pre-line" }}>
             <TitoloEvidenziato testo={s.titolo} evidenza={s.evidenza} />
           </div>
           <div style={{ position: "relative", flex: "1 1 0", minHeight: 240, maxHeight: 620, marginTop: 30, width: 900, borderRadius: 22, overflow: "hidden", background: NAVY_800 }}>
@@ -748,8 +748,8 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
             </div>
           </div>
           {/* nome lungo ("… Sblocco Schiena di Emergenza"): più piccolo per restare su una riga */}
-          <div style={{ flex: "none", color: NAVY_800, fontSize: g.nome.length > 32 ? 37 : 44, fontWeight: 800, lineHeight: 1.1, marginTop: 24, letterSpacing: g.nome.length > 32 ? "-0.02em" : undefined }}>{g.nome}</div>
-          <div style={{ flex: "none", color: SLATE_600, fontSize: 32, fontWeight: 500, lineHeight: 1.3, marginTop: 8 }}>{g.contenuto}</div>
+          <div style={{ textWrap: "pretty", flex: "none", color: NAVY_800, fontSize: g.nome.length > 32 ? 37 : 44, fontWeight: 800, lineHeight: 1.1, marginTop: 24, letterSpacing: g.nome.length > 32 ? "-0.02em" : undefined }}>{g.nome}</div>
+          <div style={{ textWrap: "pretty", flex: "none", color: SLATE_600, fontSize: 32, fontWeight: 500, lineHeight: 1.3, marginTop: 8 }}>{g.contenuto}</div>
           <div style={{ flex: "none", display: "inline-flex", alignItems: "center", gap: 14, marginTop: 30, background: BRAND_700, color: "white", fontSize: 40, fontWeight: 800, padding: "20px 30px 20px 36px", borderRadius: 14 }}>
             {s.pulsante}
             <Freccia lato={40} />
@@ -779,15 +779,15 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
         </div>
         <BarraSeServe n={n} tot={tot} />
         <div style={{ position: "absolute", left: 90, right: 90, top: 150 }}>
-          <div style={{ color: NAVY_800, fontSize: rigaPiuLunga(s.titolo) > 20 ? 84 : 100, fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.01em", whiteSpace: "pre-line" }}>
+          <div style={{ textWrap: "pretty", color: NAVY_800, fontSize: rigaPiuLunga(s.titolo) > 20 ? 84 : 100, fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.01em", whiteSpace: "pre-line" }}>
             <TitoloEvidenziato testo={s.titolo} evidenza={s.evidenza} />
           </div>
-          {s.corpo ? <div style={{ color: SLATE_600, fontSize: 44, fontWeight: 500, lineHeight: 1.35, marginTop: 26 }}>{s.corpo}</div> : null}
+          {s.corpo ? <div style={{ textWrap: "pretty", color: SLATE_600, fontSize: 44, fontWeight: 500, lineHeight: 1.35, marginTop: 26 }}>{s.corpo}</div> : null}
           <div style={{ display: "inline-flex", alignItems: "center", gap: 16, marginTop: 46, background: BRAND_700, color: "white", fontSize: 42, fontWeight: 800, padding: "22px 34px 22px 40px", borderRadius: 16, whiteSpace: "nowrap" }}>
             {s.pulsante}
             <Freccia lato={44} />
           </div>
-          {s.studio ? <div style={{ color: SLATE_600, fontSize: 32, fontWeight: 500, lineHeight: 1.4, marginTop: 22 }}>{s.studio}</div> : null}
+          {s.studio ? <div style={{ textWrap: "pretty", color: SLATE_600, fontSize: 32, fontWeight: 500, lineHeight: 1.4, marginTop: 22 }}>{s.studio}</div> : null}
           <div style={{ display: "inline-flex", alignItems: "center", gap: 14, marginTop: 30, background: SAND_50, color: NAVY_800, fontSize: 32, fontWeight: 700, padding: "16px 24px", borderRadius: 14 }}>
             <svg width={34} height={34} viewBox="0 0 24 24" fill="none" stroke={BRAND_700} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z" /><path d="m21.854 2.147-10.94 10.939" /></svg>
             {s.invito.replace(/^📩\s*/u, "")}
@@ -811,15 +811,15 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
           // La risposta alla domanda della copertina, in una riga: è la frase che resta (e che finisce negli screenshot)
           <div style={{ background: NAVY_800, borderRadius: 16, padding: "24px 30px", marginBottom: 36 }}>
             <div style={{ color: AMBER_400, fontSize: 28, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase" }}>In breve</div>
-            <div style={{ color: "white", fontSize: 38, fontWeight: 700, lineHeight: 1.28, marginTop: 8 }}>{s.inBreve}</div>
+            <div style={{ textWrap: "pretty", color: "white", fontSize: 38, fontWeight: 700, lineHeight: 1.28, marginTop: 8 }}>{s.inBreve}</div>
           </div>
         ) : null}
-        <div style={{ color: t.titolo, fontSize: s.inBreve ? 60 : 76, fontWeight: 800, lineHeight: 1.08 }}>{s.titolo}</div>
-        <div style={{ color: t.corpo, fontSize: s.inBreve ? 38 : 42, fontWeight: 500, lineHeight: 1.4, marginTop: s.inBreve ? 22 : 32 }}>{s.corpo}</div>
+        <div style={{ textWrap: "pretty", color: t.titolo, fontSize: s.inBreve ? 60 : 76, fontWeight: 800, lineHeight: 1.08 }}>{s.titolo}</div>
+        <div style={{ textWrap: "pretty", color: t.corpo, fontSize: s.inBreve ? 38 : 42, fontWeight: 500, lineHeight: 1.4, marginTop: s.inBreve ? 22 : 32 }}>{s.corpo}</div>
         <div style={{ display: "inline-block", marginTop: s.inBreve ? 30 : 40, background: scuro ? AMBER_400 : BRAND_700, color: scuro ? NAVY_800 : "white", fontSize: 38, fontWeight: 700, padding: "20px 36px", borderRadius: 14, whiteSpace: "nowrap" }}>
           {s.pulsante}
         </div>
-        {s.studio ? <div style={{ color: t.corpo, fontSize: 32, fontWeight: 500, lineHeight: 1.4, marginTop: 30 }}>{s.studio}</div> : null}
+        {s.studio ? <div style={{ textWrap: "pretty", color: t.corpo, fontSize: 32, fontWeight: 500, lineHeight: 1.4, marginTop: 30 }}>{s.studio}</div> : null}
         <div style={{ display: "inline-flex", alignItems: "center", gap: 14, marginTop: 30, background: scuro ? t.card : SAND_50, color: t.titolo, fontSize: 32, fontWeight: 700, padding: "16px 24px", borderRadius: 14 }}>
           <svg width={34} height={34} viewBox="0 0 24 24" fill="none" stroke={BRAND_700} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z" /><path d="m21.854 2.147-10.94 10.939" /></svg>
           {s.invito.replace(/^📩\s*/u, "")}

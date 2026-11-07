@@ -166,7 +166,7 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
       <>
         <Colonna alto={100} basso={110}>
           <div style={{ alignSelf: "flex-start", color: NAVY_800, border: "2px solid rgba(11,36,71,0.35)", fontSize: 28, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", padding: "6px 16px", borderRadius: 8 }}>{s.occhiello}</div>
-          <div style={{ color: t.titolo, fontSize: 92, fontWeight: 800, lineHeight: 1.12, whiteSpace: "pre-line", marginTop: 30 }}><TitoloEvidenza testo={s.titolo} evidenza={s.evidenza} /></div>
+          <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 92, fontWeight: 800, lineHeight: 1.12, whiteSpace: "pre-line", marginTop: 30 }}><TitoloEvidenza testo={s.titolo} evidenza={s.evidenza} /></div>
           <div style={{ color: t.corpo, fontSize: 36, fontWeight: 500, lineHeight: 1.35, marginTop: 26, ...RIGHE }}>{s.sotto}</div>
           {/* Misure fisse (riquadro 900×560) perché la linea che unisce cerchio e lente cada giusta */}
           <div style={{ position: "absolute", left: 0, top: 560, width: 900, height: 560 }}>
@@ -191,12 +191,12 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
     return pagina(true, (
       <Colonna>
         {cop.filo ? <Disegno html={svg(0)} mini inquadratura={cop.filo.inquadratura} style={{ height: 300, flex: "none", marginTop: 10 }} /> : null}
-        <div style={{ color: t.titolo, fontSize: 70, fontWeight: 800, lineHeight: 1.1, marginTop: 30 }}>{s.titolo}</div>
+        <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 70, fontWeight: 800, lineHeight: 1.1, marginTop: 30 }}>{s.titolo}</div>
         <div style={{ width: 120, height: 10, background: AMBER_400, borderRadius: 5, margin: "34px 0" }} />
         <div style={{ color: t.corpo, fontSize: 44, fontWeight: 500, lineHeight: 1.38, ...RIGHE }}>{perRighe(s.corpo)}</div>
         {s.segni ? (
           <div style={{ marginTop: 44, background: t.carta, borderRadius: 24, padding: "34px 40px" }}>
-            <div style={{ color: t.titolo, fontSize: 40, fontWeight: 800, marginBottom: 24 }}>{s.segni.titolo}</div>
+            <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 40, fontWeight: 800, marginBottom: 24 }}>{s.segni.titolo}</div>
             {s.segni.voci.map((v) => (
               <div key={v} style={{ display: "flex", gap: 24, alignItems: "flex-start", marginBottom: 20 }}>
                 <div style={{ flex: "none", width: 52, height: 52, borderRadius: 26, background: AMBER_400, display: "flex", alignItems: "center", justifyContent: "center", marginTop: 2 }}>
@@ -205,7 +205,7 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
                 <div style={{ color: t.titolo, fontSize: 40, fontWeight: 600, lineHeight: 1.3, ...RIGHE }}>{v}</div>
               </div>
             ))}
-            {s.segni.fonte ? <div style={{ color: t.debole, fontSize: 28, fontWeight: 500, marginTop: 6 }}>Fonte: {s.segni.fonte}</div> : null}
+            {s.segni.fonte ? <div style={{ textWrap: "pretty", color: t.debole, fontSize: 28, fontWeight: 500, marginTop: 6 }}>Fonte: {s.segni.fonte}</div> : null}
           </div>
         ) : null}
       </Colonna>
@@ -224,11 +224,11 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
               <div style={{ color: t.etichetta, fontSize: 28, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" }}>{p.nome}</div>
               {s.vista ? <Omino vista={s.vista} colore={t.debole} /> : null}
             </div>
-            <div style={{ color: t.titolo, fontSize: 52, fontWeight: 800, lineHeight: 1.1, marginTop: 6 }}>{s.titolo}</div>
+            <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 52, fontWeight: 800, lineHeight: 1.1, marginTop: 6 }}>{s.titolo}</div>
           </div>
         </div>
         {s.frase ? <div style={{ flex: "none", color: t.corpo, fontSize: 36, fontWeight: 500, lineHeight: 1.32, marginTop: 14, ...RIGHE }}>{perRighe(s.frase)}</div> : null}
-        {s.fonte ? <div style={{ flex: "none", color: t.debole, fontSize: 28, fontWeight: 500, marginTop: 8 }}>Fonte: {s.fonte}</div> : null}
+        {s.fonte ? <div style={{ textWrap: "pretty", flex: "none", color: t.debole, fontSize: 28, fontWeight: 500, marginTop: 8 }}>Fonte: {s.fonte}</div> : null}
         <Disegno html={svg(0)} scritte={s.scritte} style={{ flex: "1 1 0", marginTop: 10 }} />
       </Colonna>
     ));
@@ -265,7 +265,7 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
           {/* barre con la scala del dolore (anca, Federico 05/11/2026): il numero si vede a colpo d'occhio, ferme come gli omini */}
           {s.illustrazione?.tipo === "barre" ? (() => { const barre = s.illustrazione; return (
             <div style={{ display: "flex", flexDirection: "column", gap: 30, marginTop: 44 }}>
-              {barre.scala?.titolo ? <div style={{ color: NAVY_800, fontSize: 40, fontWeight: 800, marginBottom: -6 }}>{barre.scala.titolo}</div> : null}
+              {barre.scala?.titolo ? <div style={{ textWrap: "pretty", color: NAVY_800, fontSize: 40, fontWeight: 800, marginBottom: -6 }}>{barre.scala.titolo}</div> : null}
               {barre.righe.map((b, i) => { const ultima = barre.righe.some((r) => r.evidenza) ? !!b.evidenza : i === barre.righe.length - 1; return (
                 <div key={i}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
@@ -285,16 +285,16 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
           {/* effetto (anca, Federico 06/11/2026: «senza niente è spoglia»): cosa migliora, senza numeri, come in Carosello */}
           {s.illustrazione?.tipo === "effetto" ? (() => { const e = s.illustrazione; return (
             <div style={{ background: t.carta, borderRadius: 18, padding: "28px 34px", marginTop: 40 }}>
-              <div style={{ color: NAVY_800, fontSize: 38, fontWeight: 800, marginBottom: 18 }}>{e.titolo}</div>
+              <div style={{ textWrap: "pretty", color: NAVY_800, fontSize: 38, fontWeight: 800, marginBottom: 18 }}>{e.titolo}</div>
               {e.voci.map((v, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 26, marginTop: i ? 14 : 0 }}>
                   <svg width={70} height={70} viewBox="0 0 84 84" style={{ flex: "none" }}><circle cx="42" cy="42" r="42" fill="#E3EEFB" /><path d={e.frecce?.[i] === "su" ? "M42 64 V24 M26 38 L42 22 L58 38" : "M42 20 V60 M26 46 L42 62 L58 46"} fill="none" stroke={BRAND_700} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  <div style={{ color: NAVY_800, fontSize: 44, fontWeight: 800 }}>{v}</div>
+                  <div style={{ textWrap: "pretty", color: NAVY_800, fontSize: 44, fontWeight: 800 }}>{v}</div>
                 </div>
               ))}
             </div>); })() : null}
           {s.nota ? <div style={{ background: t.carta, borderLeft: `8px solid ${AMBER_400}`, borderRadius: 12, padding: "24px 30px", marginTop: 36, color: t.titolo, fontSize: 38, fontWeight: 600, lineHeight: 1.35, ...RIGHE }}>{s.nota}</div> : null}
-          <div style={{ color: t.debole, fontSize: 28, fontWeight: 500, lineHeight: 1.4, marginTop: 30 }}>Fonte: {s.fonte}</div>
+          <div style={{ textWrap: "pretty", color: t.debole, fontSize: 28, fontWeight: 500, lineHeight: 1.4, marginTop: 30 }}>Fonte: {s.fonte}</div>
           {s.salva ? (
             <div style={{ alignSelf: "flex-start", marginTop: 26, background: AMBER_400, color: NAVY_800, fontSize: 32, fontWeight: 700, padding: "14px 24px", borderRadius: 10, display: "flex", alignItems: "center", gap: 14 }}>
               <IconaSalva />
@@ -311,7 +311,7 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
     return pagina(true, (
       <Colonna>
         <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-          <div style={{ color: t.titolo, fontSize: 70, fontWeight: 800, lineHeight: 1.1, marginBottom: 44 }}>{s.titolo}</div>
+          <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 70, fontWeight: 800, lineHeight: 1.1, marginBottom: 44 }}>{s.titolo}</div>
           {s.voci.map((v) => (
             <div key={v} style={{ display: "flex", gap: 28, alignItems: "flex-start", marginBottom: 34 }}>
               {s.segno === "attenzione" ? (
@@ -340,13 +340,13 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
     return pagina(false, (
       <>
         <div style={{ position: "absolute", left: 90, right: 90, top: 96, bottom: 216, display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-          <div style={{ flex: "none", color: t.titolo, fontSize: 64, fontWeight: 800, lineHeight: 1.12, marginTop: 22, whiteSpace: "pre-line" }}><TitoloEvidenza testo={s.titolo} evidenza={s.evidenza} /></div>
+          <div style={{ textWrap: "pretty", flex: "none", color: t.titolo, fontSize: 64, fontWeight: 800, lineHeight: 1.12, marginTop: 22, whiteSpace: "pre-line" }}><TitoloEvidenza testo={s.titolo} evidenza={s.evidenza} /></div>
           <div style={{ position: "relative", flex: "1 1 0", minHeight: 240, maxHeight: 600, marginTop: 30, width: 900, borderRadius: 22, overflow: "hidden", background: NAVY_800 }}>
             {animato ? <OffthreadVideo src={staticFile(g.video)} muted style={{ width: 900, height: "100%", objectFit: "cover" }} />
               : <Img src={staticFile(g.fermo)} style={{ width: 900, height: "100%", objectFit: "cover" }} />}
           </div>
-          <div style={{ flex: "none", color: t.titolo, fontSize: g.nome.length > 32 ? 37 : 44, fontWeight: 800, lineHeight: 1.1, marginTop: 24, letterSpacing: g.nome.length > 32 ? "-0.02em" : undefined }}>{g.nome}</div>
-          <div style={{ flex: "none", color: t.corpo, fontSize: 32, fontWeight: 500, lineHeight: 1.3, marginTop: 8 }}>{g.contenuto}</div>
+          <div style={{ textWrap: "pretty", flex: "none", color: t.titolo, fontSize: g.nome.length > 32 ? 37 : 44, fontWeight: 800, lineHeight: 1.1, marginTop: 24, letterSpacing: g.nome.length > 32 ? "-0.02em" : undefined }}>{g.nome}</div>
+          <div style={{ textWrap: "pretty", flex: "none", color: t.corpo, fontSize: 32, fontWeight: 500, lineHeight: 1.3, marginTop: 8 }}>{g.contenuto}</div>
           <div style={{ flex: "none", display: "inline-flex", alignItems: "center", gap: 14, marginTop: 28, background: BRAND_700, color: "white", fontSize: 40, fontWeight: 800, padding: "20px 30px 20px 36px", borderRadius: 14 }}>
             {s.pulsante}
             <svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
