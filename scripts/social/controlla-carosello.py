@@ -95,6 +95,33 @@ def sovrapposti(a, b, tolleranza=2):
     return ox > tolleranza and oy > tolleranza
 
 
+# A capo (07/11/2026, Federico sulla spalla di notte: «un a capo brutto»): le righe vere arrivano dal componente.
+FINALI_VIETATI = set("""il lo la i gli le un uno una l' un' di a da in con su per tra fra del dello della dei degli delle
+al allo alla ai agli alle dal dallo dalla dai dagli dalle nel nello nella nei negli nelle sul sullo sulla sui sugli sulle
+e o che ma se""".split())
+
+
+def a_capo(righe):
+    """Problemi degli a capo di un testo: riga che finisce con articolo o preposizione, ultima riga di una parola
+    sola, riga spezzata (molto più corta delle altre) in un testo di 3 righe o più."""
+    problemi = []
+    if len(righe) < 2:
+        return problemi
+    for r in righe[:-1]:
+        ultima = r.split()[-1].lower().strip("«»\"'.,:;?!")
+        if ultima in FINALI_VIETATI or r.rstrip().endswith(("l'", "un'", "dell'", "all'", "nell'", "sull'", "dall'")):
+            problemi.append(f"riga che finisce con «{r.split()[-1]}»: «{r}»")
+    if len(righe[-1].split()) == 1 and len(righe[-1]) < 12:
+        problemi.append(f"ultima riga di una parola sola: «{righe[-1]}»")
+    if len(righe) >= 3:
+        lunga = max(len(r) for r in righe)
+        for r in righe[:-1]:
+            if len(r) < 0.4 * lunga:
+                problemi.append(f"riga spezzata, molto più corta delle altre: «{r}» (rileggi tutto il testo: accorcialo o cambia gli a capo)")
+    return problemi
+
+
+
 def main():
     cartella = Path(sys.argv[1])
     misure = json.loads((cartella / "misure.json").read_text())
@@ -125,6 +152,9 @@ def main():
                 # per difetto: 4,49 non deve comparire come "4.5:1 (minimo 4.5:1)" (slide 2 di f9d45c8e, 29/10/2026)
                 print(f"✗ {nome}: contrasto {math.floor(r * 10) / 10:.1f}:1 (minimo {soglia}:1)")
                 problemi += 1
+            for p in a_capo(v.get("righe") or []):
+                print(f"✗ {nome}: {p}")
+                problemi += 1
         vs = slide["voci"]
         for i in range(len(vs)):
             for j in range(i + 1, len(vs)):
@@ -140,7 +170,7 @@ def main():
     if problemi:
         print(f"\n{problemi} problemi su {voci} testi in {len(misure)} slide.")
         sys.exit(1)
-    print(f"Tutto a posto: {voci} testi in {len(misure)} slide (dimensione, contrasto, margini, sovrapposizioni).")
+    print(f"Tutto a posto: {voci} testi in {len(misure)} slide (dimensione, contrasto, margini, sovrapposizioni, a capo).")
 
 
 if __name__ == "__main__":

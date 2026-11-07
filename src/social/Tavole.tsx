@@ -69,8 +69,30 @@ const opacita = (el: Element | null): number => {
   for (let e = el; e && e !== document.body; e = e.parentElement) o *= parseFloat(getComputedStyle(e).opacity || "1");
   return o;
 };
+// Righe vere di un testo, come le vede chi legge (07/11/2026, Federico: «un a capo brutto»): le parole raggruppate
+// per altezza; controlla-carosello.py ferma le righe che finiscono con un articolo o una preposizione, l'ultima riga
+// di una parola sola e la riga spezzata (molto più corta delle altre) in un testo di 3 righe o più.
+const righeDi = (nodo: Node): string[] => {
+  const t = nodo.textContent ?? "";
+  const out: { top: number; testo: string }[] = [];
+  const re = /\S+/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(t))) {
+    const r = document.createRange();
+    r.setStart(nodo, m.index);
+    r.setEnd(nodo, m.index + m[0].length);
+    const rects = r.getClientRects();
+    if (!rects.length) continue;
+    const top = Math.round(rects[0].top);
+    const ultima = out[out.length - 1];
+    if (ultima && Math.abs(ultima.top - top) < 4) ultima.testo += " " + m[0];
+    else out.push({ top, testo: m[0] });
+  }
+  return out.map((o) => o.testo);
+};
+
 const misuraTesti = (riduzione: number) => {
-  const voci: { testo: string; px: number; peso: number; colore: string; x: number; y: number; w: number; h: number; blocco: number }[] = [];
+  const voci: { testo: string; px: number; peso: number; colore: string; x: number; y: number; w: number; h: number; blocco: number; righe: string[] }[] = [];
   const blocchi = new Map<Element, number>();
   const inSvg = new Set<number>();
   const giro = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
@@ -90,7 +112,7 @@ const misuraTesti = (riduzione: number) => {
         let b: Element = el;
         while (b.parentElement && getComputedStyle(b).display === "inline" && !(b instanceof SVGElement)) b = b.parentElement;
         if (!blocchi.has(b)) blocchi.set(b, blocchi.size);
-        voci.push({ testo: testo.slice(0, 40), px, peso: parseInt(st.fontWeight, 10), colore: st.color === "rgb(0, 0, 0)" && svg ? st.fill : st.color, x: r.left, y: r.top, w: r.width, h: r.height, blocco: blocchi.get(b)! });
+        voci.push({ testo: testo.slice(0, 40), px, peso: parseInt(st.fontWeight, 10), colore: st.color === "rgb(0, 0, 0)" && svg ? st.fill : st.color, x: r.left, y: r.top, w: r.width, h: r.height, blocco: blocchi.get(b)!, righe: righeDi(nodo) });
         if (svg) inSvg.add(voci.length - 1);
       }
     }
