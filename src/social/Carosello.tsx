@@ -20,6 +20,7 @@ export type Stile = "sito" | "navy" | "foto";
 // Illustrazioni che spiegano il testo (Houts 2006: figure legate al testo aumentano attenzione e ricordo;
 // le decorative no). Approvate da Federico il 23/10/2026.
 export type NomeIcona = "letto" | "cammina" | "posizione" | "casa" | "pillola" | "clessidra" | "pesi" | "telefono" | "referto" | "risonanza";
+export type PartePratica = { titolo: string; voci: string[]; disegni: string[] };
 export type Illustrazione =
   | { tipo: "pittogramma"; su: number; totale: number }
   // effetto (05/11/2026, Federico, variante A su 3): cosa migliora con il trattamento, una freccia giù per voce
@@ -98,6 +99,11 @@ export type Slide =
   // alto ma nella legenda accanto all'omino colorato, sotto "chi" (le persone); la frase allora non serve.
   | { tipo: "dato"; etichetta: string; numero?: string; frase?: string; chi?: string; cosa?: string; altri?: string; nota?: string; fonte: string; illustrazione?: Illustrazione }
   | { tipo: "lista"; titolo: string; segno: "si" | "no" | "attenzione"; voci: string[]; nota?: string; icone?: NomeIcona[]; scuro?: boolean }
+  // pratica (08/11/2026, Federico: «Cosa fare» e «Cosa evitare» in una slide sola, stile F3 scelto su 7 prove): due colonne
+  // «✓ Sì» e «✕ No», 2 voci per parte, un disegno per voce. Le tessere del Sì sono blu piene (come la barra che vince nella
+  // slide dei dati e il pulsante della chiusura), quelle del No bianche col bordo grigio. I disegni li sceglie la routine dal
+  // catalogo (video-guide-media/social/disegni) e scripts/carosello-social/disegni.py ne copia i tratti in `tratti`.
+  | { tipo: "pratica"; titolo: string; si: PartePratica; no: PartePratica; nota?: string; tratti?: Record<string, { viewBox?: string; tratti: string }> }
   // guida (28/10/2026): i caroselli che portano a una video guida mostrano un solo movimento della guida (video su
   // Instagram, fotogramma fermo altrove) con il nome della guida come titolo; lo studio scende nella firma.
   // evidenza (29/10/2026): le parole del problema nel titolo, su fondo ambra come in copertina. Dal 29/10 lo stile
@@ -133,6 +139,10 @@ const legaSlide = (s: Slide): Slide => {
   const x = { ...s } as Record<string, unknown>;
   const campi = ["sotto", "frase", "corpo", "nota", "invito", "chi", "cosa", "altri", ...("evidenza" in x && x.evidenza ? [] : ["titolo"])];
   for (const c of campi) if (typeof x[c] === "string") x[c] = lega(x[c] as string);
+  for (const parte of ["si", "no"]) {
+    const p = x[parte] as PartePratica | undefined;
+    if (s.tipo === "pratica" && p) x[parte] = { ...p, titolo: p.titolo, voci: p.voci.map((v) => lega(v)) };
+  }
   if (Array.isArray(x.voci)) x.voci = x.voci.map((v) => (typeof v === "string" ? lega(v) : v && typeof v === "object" && "testo" in v ? { ...v, testo: lega(String((v as { testo: string }).testo)) } : v));
   return x as Slide;
 };
@@ -689,6 +699,8 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
     );
   }
 
+  if (s.tipo === "pratica") return <Pratica s={s} t={t} n={n} tot={tot} base={base} />;
+
   if (s.tipo === "lista") {
     // Campanelli d'allarme su navy: cambio di registro visibile, l'ambra del "!" risalta
     if (s.scuro) t = tema("navy", false);
@@ -849,6 +861,63 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
       </div>
       <Cornice n={n} tot={tot} colore={t.debole}>
         <div style={{ position: "absolute", left: 90, bottom: 130, color: t.debole, fontSize: 30, fontWeight: 500 }}>Dr. Federico Piazza · Osteopata e fisioterapista</div>
+      </Cornice>
+    </AbsoluteFill>
+  );
+};
+
+// ---- Slide «Cosa fare e cosa evitare» (tipo pratica, 08/11/2026, stile F3) ----
+const SegnoTratto: React.FC<{ si: boolean; lato: number; colore: string }> = ({ si, lato, colore }) => (
+  <svg width={lato} height={lato} viewBox="0 0 24 24" fill="none" stroke={colore} strokeWidth={4} strokeLinecap="round" strokeLinejoin="round">
+    {si ? <path d="M4 12.5l5 5L20 6.5" /> : (<><path d="M6 6l12 12" /><path d="M18 6 6 18" /></>)}
+  </svg>
+);
+
+// Il disegno di una voce: dai tratti copiati dal catalogo; le icone del componente restano come riserva
+const DisegnoPratica: React.FC<{ nome: string; tratti?: Record<string, { viewBox?: string; tratti: string }>; lato: number; colore: string }> = ({ nome, tratti, lato, colore }) => {
+  const d = tratti?.[nome];
+  if (!d && !(nome in TRATTI)) throw new Error(`Disegno «${nome}» mancante: lancia scripts/carosello-social/disegni.py metti sul dati.json`);
+  return (
+    <svg width={lato} height={lato} viewBox={d?.viewBox ?? "0 0 24 24"} fill="none" stroke={colore} strokeWidth={d ? 1.8 : 2} strokeLinecap="round" strokeLinejoin="round">
+      {d ? <g dangerouslySetInnerHTML={{ __html: d.tratti }} /> : TRATTI[nome as NomeIcona]}
+    </svg>
+  );
+};
+
+const Pratica: React.FC<{ s: Extract<Slide, { tipo: "pratica" }>; t: ReturnType<typeof tema>; n: number; tot: number; base: React.CSSProperties }> = ({ s, t, n, tot, base }) => {
+  const colonna = (si: boolean, p: PartePratica) => (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* intestazione: segno e parola, con una riga spessa sotto (blu sotto il Sì, grigia sotto il No) */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, borderBottom: `8px solid ${si ? BRAND_700 : "#CBD2DC"}`, paddingBottom: 14 }}>
+        <SegnoTratto si={si} lato={44} colore={si ? BRAND_700 : SLATE_500} />
+        <div style={{ color: si ? NAVY_800 : SLATE_600, fontSize: 48, fontWeight: 800 }}>{p.titolo}</div>
+      </div>
+      {p.voci.map((v, i) => (
+        <div key={v} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 18, background: si ? BRAND_700 : "white", border: si ? "none" : "4px solid #CBD2DC", borderRadius: 24, padding: si ? "34px 24px" : "30px 20px" }}>
+          <div style={{ width: 148, height: 148, borderRadius: 74, background: si ? "rgba(255,255,255,0.16)" : "#EEF0F3", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <DisegnoPratica nome={p.disegni[i]} tratti={s.tratti} lato={104} colore={si ? "white" : SLATE_500} />
+          </div>
+          <div style={{ textWrap: "balance", color: si ? "white" : SLATE_600, fontSize: 36, fontWeight: 650, lineHeight: 1.22 }}>{v}</div>
+        </div>
+      ))}
+    </div>
+  );
+  return (
+    <AbsoluteFill style={base}>
+      <Cornice n={n} tot={tot} colore={t.debole}>
+        <Contenuto>
+          <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 64, fontWeight: 800, lineHeight: 1.1, marginBottom: 36 }}>{s.titolo}</div>
+          <div style={{ display: "flex", gap: 24, alignItems: "stretch" }}>
+            {colonna(true, s.si)}
+            {colonna(false, s.no)}
+          </div>
+          {s.nota ? (
+            <div style={{ alignSelf: "flex-start", marginTop: 26, background: AMBER_100, color: NAVY_800, fontSize: 30, fontWeight: 700, padding: "12px 22px", borderRadius: 10, display: "flex", alignItems: "center", gap: 12 }}>
+              <svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke={NAVY_800} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" /></svg>
+              {s.nota.replace(/\s*🔖\s*$/u, "")}
+            </div>
+          ) : null}
+        </Contenuto>
       </Cornice>
     </AbsoluteFill>
   );
