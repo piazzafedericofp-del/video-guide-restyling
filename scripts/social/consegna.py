@@ -53,5 +53,16 @@ try:
     campi |= carica_storie(pid, uscite)
 except Exception as e:  # noqa: BLE001
     print(f"Storie non caricate: {e}", file=sys.stderr)
+# Note della generazione per Federico (08/11/2026): le domande del ciclo di revisione in testa, poi la nota intera (fonti,
+# tavole da confermare, correzioni proposte). La dashboard le mostra nella scheda da approvare
+try:
+    nota = str(dati.get("nota_routine") or "").strip()
+    domande = [str(x).strip() for x in ((dati.get("revisione") or {}).get("domande_federico") or []) if str(x).strip()]
+    testo = ("DOMANDE PER TE:\n" + "\n".join(f"{i}) {x}" for i, x in enumerate(domande, 1))) if domande else ""
+    if nota:
+        testo += ("\n\n" if testo else "") + "NOTA COMPLETA:\n" + nota
+    campi["nota_routine"] = testo[:20000]
+except Exception as e:  # noqa: BLE001
+    print(f"Nota non preparata: {e}", file=sys.stderr)
 # Consegna ripetibile: rimette gli stessi campi e lo stesso stato, quindi riprova anche lei su un errore passeggero
 print(chiama(f"/api/generatore/post/{pid}", "POST", {**campi, "fase": "pronto"}, ripeti=True))
