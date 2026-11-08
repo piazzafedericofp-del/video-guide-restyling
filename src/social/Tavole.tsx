@@ -14,6 +14,8 @@ export type Vista = { tipo: "dall'alto" | "di lato" | "dietro" | "davanti"; zona
 export type SlideTavola = {
   tipo: "tavola";
   etichetta: string; // il passo ("2 · L'ernia"): fa vedere che il disegno va avanti
+  // svolta (08/11/2026): la tavola che dice che cosa aiuta; etichetta senza numero («Cosa aiuta»), la ✓ al posto del numero
+  svolta?: boolean;
   titolo: string;
   frase?: string; // sopra il disegno, vicino a ciò che spiega
   fonte?: string;

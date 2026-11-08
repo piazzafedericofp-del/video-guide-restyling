@@ -884,7 +884,8 @@ const DisegnoPratica: React.FC<{ nome: string; tratti?: Record<string, { viewBox
   );
 };
 
-const Pratica: React.FC<{ s: Extract<Slide, { tipo: "pratica" }>; t: ReturnType<typeof tema>; n: number; tot: number; base: React.CSSProperties }> = ({ s, t, n, tot, base }) => {
+// Le due colonne e l'invito a salvare: le usa anche la rubrica «Come funziona» (ComeFunziona.tsx), con il suo fondo e le sue tacche
+export const ColonnePratica: React.FC<{ s: Extract<Slide, { tipo: "pratica" }> }> = ({ s }) => {
   const colonna = (si: boolean, p: PartePratica) => (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 20 }}>
       {/* intestazione: segno e parola, con una riga spessa sotto (blu sotto il Sì, grigia sotto il No) */}
@@ -897,28 +898,34 @@ const Pratica: React.FC<{ s: Extract<Slide, { tipo: "pratica" }>; t: ReturnType<
           <div style={{ width: 148, height: 148, borderRadius: 74, background: si ? "rgba(255,255,255,0.16)" : "#EEF0F3", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <DisegnoPratica nome={p.disegni[i]} tratti={s.tratti} lato={104} colore={si ? "white" : SLATE_500} />
           </div>
-          <div style={{ textWrap: "balance", color: si ? "white" : SLATE_600, fontSize: 36, fontWeight: 650, lineHeight: 1.22 }}>{v}</div>
+          <div style={{ textWrap: "balance", color: si ? "white" : SLATE_600, fontSize: 36, fontWeight: 650, lineHeight: 1.22 }}>{lega(v)}</div>
         </div>
       ))}
     </div>
   );
   return (
-    <AbsoluteFill style={base}>
-      <Cornice n={n} tot={tot} colore={t.debole}>
-        <Contenuto>
-          <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 64, fontWeight: 800, lineHeight: 1.1, marginBottom: 36 }}>{s.titolo}</div>
-          <div style={{ display: "flex", gap: 24, alignItems: "stretch" }}>
-            {colonna(true, s.si)}
-            {colonna(false, s.no)}
-          </div>
-          {s.nota ? (
-            <div style={{ alignSelf: "flex-start", marginTop: 26, background: AMBER_100, color: NAVY_800, fontSize: 30, fontWeight: 700, padding: "12px 22px", borderRadius: 10, display: "flex", alignItems: "center", gap: 12 }}>
-              <svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke={NAVY_800} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" /></svg>
-              {s.nota.replace(/\s*🔖\s*$/u, "")}
-            </div>
-          ) : null}
-        </Contenuto>
-      </Cornice>
-    </AbsoluteFill>
+    <>
+      <div style={{ display: "flex", gap: 24, alignItems: "stretch" }}>
+        {colonna(true, s.si)}
+        {colonna(false, s.no)}
+      </div>
+      {s.nota ? (
+        <div style={{ alignSelf: "flex-start", marginTop: 26, background: AMBER_100, color: NAVY_800, fontSize: 30, fontWeight: 700, padding: "12px 22px", borderRadius: 10, display: "flex", alignItems: "center", gap: 12 }}>
+          <svg width={30} height={30} viewBox="0 0 24 24" fill="none" stroke={NAVY_800} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" /></svg>
+          {s.nota.replace(/\s*🔖\s*$/u, "")}
+        </div>
+      ) : null}
+    </>
   );
 };
+
+const Pratica: React.FC<{ s: Extract<Slide, { tipo: "pratica" }>; t: ReturnType<typeof tema>; n: number; tot: number; base: React.CSSProperties }> = ({ s, t, n, tot, base }) => (
+  <AbsoluteFill style={base}>
+    <Cornice n={n} tot={tot} colore={t.debole}>
+      <Contenuto>
+        <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 64, fontWeight: 800, lineHeight: 1.1, marginBottom: 36 }}>{s.titolo}</div>
+        <ColonnePratica s={s} />
+      </Contenuto>
+    </Cornice>
+  </AbsoluteFill>
+);

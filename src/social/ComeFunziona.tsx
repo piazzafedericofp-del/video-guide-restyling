@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, Img, OffthreadVideo, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
-import { Carosello, durataAnimata, lega, NumeroLegenda, OMINO_GRIGIO, type CaroselloProps, type Slide } from "./Carosello";
+import { Carosello, ColonnePratica, durataAnimata, lega, NumeroLegenda, OMINO_GRIGIO, type CaroselloProps, type Slide } from "./Carosello";
 import { durataTavola, Omino, SCALA_VERTICALE, useDisegni, type SlideTavola } from "./Tavole";
 
 // Rubrica «Come funziona» (skill carosello-social, variante «Come funziona»): l'articolo del blog in carosello, con le
@@ -128,7 +128,7 @@ const IconaSalva: React.FC = () => (
 
 // Le slide che lo stile non disegna (copertina con la foto IA, chiusura verso lo studio, confronti…) le fa Carosello.tsx
 const daCarosello = (s: SlideCome) =>
-  (s.tipo === "copertina" && !s.disegni?.length) || (s.tipo === "chiusura" && !s.guida) || !["copertina", "testo", "tavola", "dato", "lista", "chiusura"].includes(s.tipo);
+  (s.tipo === "copertina" && !s.disegni?.length) || (s.tipo === "chiusura" && !s.guida) || !["copertina", "testo", "tavola", "dato", "lista", "pratica", "chiusura"].includes(s.tipo);
 
 export const ComeFunziona: React.FC<PropsCome> = (props) => {
   const frame = useCurrentFrame();
@@ -215,10 +215,20 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
   // ── C · Le tavole, un passo per slide (lo scorrere fa da animazione)
   if (s.tipo === "tavola") {
     const p = passoDi(s.etichetta);
+    const conSvolta = slide.some((x) => x.tipo === "tavola" && x.svolta);
     return pagina(true, (
       <Colonna>
         <div style={{ display: "flex", alignItems: "center", gap: 24, flex: "none" }}>
-          <div style={{ flex: "none", width: 104, height: 104, borderRadius: 52, background: BRAND_700, color: "white", fontSize: 60, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>{p.n}</div>
+          {/* Svolta (08/11/2026, Federico: «la quarta slide della svolta non può avere il numero 3 perché confonde chi legge»):
+              la tavola che dice che cosa aiuta ha la ✓ nel cerchio blu pieno, come la colonna «Sì» della slide pratica;
+              i passi del meccanismo hanno il numero in un cerchio vuoto. Senza svolta (caroselli fatti prima) tutto come prima. */}
+          {s.svolta ? (
+            <div style={{ flex: "none", width: 104, height: 104, borderRadius: 52, background: BRAND_700, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width={58} height={58} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3.4} strokeLinecap="round" strokeLinejoin="round"><path d="M4 12.5l5 5L20 6.5" /></svg>
+            </div>
+          ) : (
+            <div style={{ flex: "none", width: 104, height: 104, borderRadius: 52, background: conSvolta ? "white" : BRAND_700, border: conSvolta ? `5px solid ${BRAND_700}` : undefined, boxSizing: "border-box", color: conSvolta ? BRAND_700 : "white", fontSize: 60, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>{p.n}</div>
+          )}
           <div style={{ flex: "1 1 0", minWidth: 0 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
               <div style={{ color: t.etichetta, fontSize: 28, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" }}>{p.nome}</div>
@@ -307,6 +317,18 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
   }
 
   // ── E · Sicurezza: cambia registro (navy)
+  // ── D · «Cosa fare e cosa evitare» (08/11/2026): le stesse colonne dei «Cosa dicono gli studi» (stile F3), sul fondo bianco della lente
+  if (s.tipo === "pratica") {
+    return pagina(true, (
+      <Colonna>
+        <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 64, fontWeight: 800, lineHeight: 1.1, marginBottom: 36 }}>{s.titolo}</div>
+          <ColonnePratica s={s} />
+        </div>
+      </Colonna>
+    ));
+  }
+
   if (s.tipo === "lista") {
     return pagina(true, (
       <Colonna>
