@@ -19,6 +19,9 @@ export type SlideTavola = {
   titolo: string;
   frase?: string; // sopra il disegno, vicino a ciò che spiega
   fonte?: string;
+  // Stile «sotto» (Federico, 10/11/2026, artrosi: «slide troppo affollate… frasi sconnesse»): la frase diventa un paragrafo
+  // collegato in un riquadro sabbia sotto il disegno, con la fonte; **parole** in grassetto. Senza il campo, tutto come prima.
+  stile?: "sotto";
   svg: string; // file in public/tavole
   tempo: number; // secondo del fotogramma fermo (JPEG per tutti i social)
   // Instagram: si anima solo il passaggio che è un movimento (da → a), poi resta fermo "ferma" secondi
@@ -74,15 +77,27 @@ const opacita = (el: Element | null): number => {
 // Righe vere di un testo, come le vede chi legge (07/11/2026, Federico: «un a capo brutto»): le parole raggruppate
 // per altezza; controlla-carosello.py ferma le righe che finiscono con un articolo o una preposizione, l'ultima riga
 // di una parola sola e la riga spezzata (molto più corta delle altre) in un testo di 3 righe o più.
-const righeDi = (nodo: Node): string[] => {
-  const t = nodo.textContent ?? "";
+// Un paragrafo con parti in grassetto (stile «sotto», 10/11/2026) ha più nodi di testo: le righe si contano sul blocco
+// intero (le parole possono stare a cavallo di due nodi, «sottile» + «.»), così un pezzo in grassetto non sembra una riga
+// spezzata o una parola sola. Con un nodo solo è il calcolo di prima.
+const righeDi = (radice: Node): string[] => {
+  const nodi: Node[] = [];
+  if (radice.nodeType === Node.TEXT_NODE) nodi.push(radice);
+  else { const g = document.createTreeWalker(radice, NodeFilter.SHOW_TEXT); for (let x = g.nextNode(); x; x = g.nextNode()) nodi.push(x); }
+  const inizi: number[] = [];
+  let tutto = "";
+  for (const n of nodi) { inizi.push(tutto.length); tutto += n.textContent ?? ""; }
+  const punto = (pos: number, fine: boolean): [Node, number] => {
+    for (let i = nodi.length - 1; i >= 0; i--) if (fine ? pos > inizi[i] : pos >= inizi[i]) return [nodi[i], pos - inizi[i]];
+    return [nodi[0], 0];
+  };
   const out: { top: number; testo: string }[] = [];
   const re = /\S+/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(t))) {
+  while ((m = re.exec(tutto))) {
     const r = document.createRange();
-    r.setStart(nodo, m.index);
-    r.setEnd(nodo, m.index + m[0].length);
+    r.setStart(...punto(m.index, false));
+    r.setEnd(...punto(m.index + m[0].length, true));
     const rects = r.getClientRects();
     if (!rects.length) continue;
     const top = Math.round(rects[0].top);
@@ -93,6 +108,16 @@ const righeDi = (nodo: Node): string[] => {
   return out.map((o) => o.testo);
 };
 
+// Paragrafo dello stile «sotto» (data-paragrafo, con parti in grassetto): le righe vanno una volta sola, sul blocco
+// intero, alla prima voce. Gli altri testi restano misurati nodo per nodo come prima.
+const bloccoMisto = (b: Element) => b.hasAttribute("data-paragrafo");
+const giaContati = new WeakSet<Element>();
+const righeVoce = (nodo: Node, b: Element): string[] => {
+  if (b instanceof SVGElement || !bloccoMisto(b)) return righeDi(nodo);
+  if (giaContati.has(b)) return [];
+  giaContati.add(b);
+  return righeDi(b);
+};
 const misuraTesti = (riduzione: number) => {
   const voci: { testo: string; px: number; peso: number; colore: string; x: number; y: number; w: number; h: number; blocco: number; righe: string[] }[] = [];
   const blocchi = new Map<Element, number>();
@@ -114,7 +139,7 @@ const misuraTesti = (riduzione: number) => {
         let b: Element = el;
         while (b.parentElement && getComputedStyle(b).display === "inline" && !(b instanceof SVGElement)) b = b.parentElement;
         if (!blocchi.has(b)) blocchi.set(b, blocchi.size);
-        voci.push({ testo: testo.slice(0, 40), px, peso: parseInt(st.fontWeight, 10), colore: st.color === "rgb(0, 0, 0)" && svg ? st.fill : st.color, x: r.left, y: r.top, w: r.width, h: r.height, blocco: blocchi.get(b)!, righe: righeDi(nodo) });
+        voci.push({ testo: testo.slice(0, 40), px, peso: parseInt(st.fontWeight, 10), colore: st.color === "rgb(0, 0, 0)" && svg ? st.fill : st.color, x: r.left, y: r.top, w: r.width, h: r.height, blocco: blocchi.get(b)!, righe: righeVoce(nodo, b) });
         if (svg) inSvg.add(voci.length - 1);
       }
     }

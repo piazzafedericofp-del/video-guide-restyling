@@ -216,6 +216,35 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
   if (s.tipo === "tavola") {
     const p = passoDi(s.etichetta);
     const conSvolta = slide.some((x) => x.tipo === "tavola" && x.svolta);
+    // Stile «sotto» (Federico, 10/11/2026, artrosi, variante 1 su 3 prove): titolo, disegno grande e sotto il racconto come
+    // paragrafo collegato in un riquadro sabbia con la fonte; le **parole chiave** in grassetto navy. Senza `stile`, come prima.
+    if (s.stile === "sotto") {
+      const grassetto = (testo: string) => testo.split(/\*\*(.+?)\*\*/g).map((x, i) => (i % 2 ? <span key={i} style={{ color: t.titolo, fontWeight: 700 }}>{x}</span> : x));
+      return pagina(true, (
+        <Colonna>
+          <div style={{ display: "flex", alignItems: "center", gap: 22, flex: "none" }}>
+            {s.svolta ? (
+              <div style={{ flex: "none", width: 84, height: 84, borderRadius: 42, background: BRAND_700, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width={48} height={48} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3.4} strokeLinecap="round" strokeLinejoin="round"><path d="M4 12.5l5 5L20 6.5" /></svg>
+              </div>
+            ) : (
+              <div style={{ flex: "none", width: 84, height: 84, borderRadius: 42, background: conSvolta ? "white" : BRAND_700, border: conSvolta ? `5px solid ${BRAND_700}` : undefined, boxSizing: "border-box", color: conSvolta ? BRAND_700 : "white", fontSize: 48, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>{p.n}</div>
+            )}
+            <div style={{ flex: "1 1 0", minWidth: 0 }}>
+              <div style={{ color: t.etichetta, fontSize: 28, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" }}>{p.nome}</div>
+              <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 52, fontWeight: 800, lineHeight: 1.1, marginTop: 4 }}>{s.titolo}</div>
+            </div>
+          </div>
+          <Disegno html={svg(0)} scritte={s.scritte} style={{ flex: "1 1 0", marginTop: 18 }} />
+          {s.frase ? (
+            <div style={{ flex: "none", background: t.carta, borderRadius: 24, padding: "30px 36px 26px", marginTop: 14 }}>
+              <div data-paragrafo style={{ textWrap: "pretty", color: t.corpo, fontSize: 36, fontWeight: 500, lineHeight: 1.42 }}>{grassetto(lega(s.frase))}</div>
+              {s.fonte ? <div style={{ color: t.debole, fontSize: 28, fontWeight: 500, marginTop: 14 }}>Fonte: {s.fonte}</div> : null}
+            </div>
+          ) : null}
+        </Colonna>
+      ));
+    }
     return pagina(true, (
       <Colonna>
         <div style={{ display: "flex", alignItems: "center", gap: 24, flex: "none" }}>
