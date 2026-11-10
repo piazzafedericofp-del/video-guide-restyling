@@ -25,6 +25,43 @@ lavori = {l["id"]: l for l in risposta["lavori"]}
 # Non entrano nella firma dei lavori: cambiare una lezione non fa rifare niente di già consegnato
 (media / "social" / "lezioni.json").write_text(json.dumps(risposta.get("lezioni", []), ensure_ascii=False, indent=1))
 
+# Disegni nuovi del catalogo approvati con il carosello (10/11/2026): «nuovo = lo approva Federico con il carosello».
+# Quando Federico approva un carosello, i disegni «nuovo» che usa diventano «approvato»: dopo il render il verificatore
+# non riparte per loro (federicopiazza.com/scripts/carosello-social/revisione-carosello.py verificatore).
+def nomi_disegni(x):
+    if isinstance(x, dict):
+        for k, v in x.items():
+            if k == "disegni" and isinstance(v, list):
+                yield from (n for n in v if isinstance(n, str))
+            else:
+                yield from nomi_disegni(v)
+    elif isinstance(x, list):
+        for v in x:
+            yield from nomi_disegni(v)
+
+
+catalogo_p = media / "social" / "disegni" / "disegni.json"
+if catalogo_p.exists() and risposta.get("caroselli_approvati"):
+    catalogo = json.loads(catalogo_p.read_text())
+    segnati = 0
+    for pid in risposta["caroselli_approvati"]:
+        dati_p = radice / pid / "dati.json"
+        if not dati_p.exists():
+            continue
+        try:
+            dati = json.loads(dati_p.read_text())
+        except ValueError:
+            continue
+        for n in set(nomi_disegni(dati.get("props") or dati)):
+            d = catalogo["disegni"].get(n)
+            if d and d.get("stato") == "nuovo":
+                d["stato"] = "approvato"
+                d["da"] = (d.get("da", "") + f"; approvato da Federico con il carosello {pid}").lstrip("; ")
+                segnati += 1
+    if segnati:
+        catalogo_p.write_text(json.dumps(catalogo, ensure_ascii=False, indent=1))  # come disegni.py
+        print(f"disegni approvati con il carosello: {segnati}")
+
 nuovi = rifatti = annullati = 0
 firma = lambda l: json.dumps([l.get("lavoro"), l.get("richiesta_modifica"), l.get("brief"), l.get("clip_id"), l.get("tema_id")], ensure_ascii=False)
 for pid, l in lavori.items():
