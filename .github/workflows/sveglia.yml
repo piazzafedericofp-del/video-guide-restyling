@@ -53,6 +53,7 @@ jobs:
             lezioni
             social/lavori
             social/sveglie.json
+            social/disegni
 
       - name: Codice
         uses: actions/checkout@v4
