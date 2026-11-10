@@ -604,8 +604,8 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
             {s.frase ? <div style={{ textWrap: "pretty", color: t.titolo, fontSize: s.numero ? 56 : barre ? 64 : 66, fontWeight: 750, lineHeight: barre ? 1.16 : 1.18 }}>{s.frase}</div> : null}
             </>)}
             {s.illustrazione?.tipo === "effetto" ? (() => { const e = s.illustrazione; /* Riquadro del risultato (Federico, 10/11/2026, stile 3 su 3 prove): stessa forma della nota, bordo a sinistra in blu invece che in ambra (blu = risultato dello studio, ambra = nota); frase dello studio in grigio, risultati in grassetto */ return (
-              <div style={{ background: t.card, borderLeft: `8px solid ${BRAND_700}`, borderRadius: 12, padding: "30px 34px", marginTop: 48 }}>
-                <div style={{ textWrap: "pretty", color: t.corpo, fontSize: 36, fontWeight: 600, lineHeight: 1.35, marginBottom: 26 }}>{e.titolo}</div>
+              <div style={{ background: t.card, borderLeft: `8px solid ${BRAND_700}`, borderRadius: 12, padding: "26px 34px", marginTop: 40 }}>
+                <div style={{ textWrap: "pretty", color: t.corpo, fontSize: 36, fontWeight: 600, lineHeight: 1.35, marginBottom: 22 }}>{lega(e.titolo)}</div>
                 {e.voci.map((v, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 26, marginTop: i ? 18 : 0 }}>
                     <svg width={70} height={70} viewBox="0 0 84 84" style={{ flex: "none" }}><circle cx="42" cy="42" r="42" fill="#E3EEFB" /><path d={e.frecce?.[i] === "su" ? "M42 64 V24 M26 38 L42 22 L58 38" : "M42 20 V60 M26 46 L42 62 L58 46"} fill="none" stroke={BRAND_700} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" /></svg>
