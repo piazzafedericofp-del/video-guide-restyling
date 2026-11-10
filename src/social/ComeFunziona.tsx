@@ -288,7 +288,7 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
     return pagina(true, (
       <Colonna>
         <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-          <div style={{ color: t.etichetta, fontSize: 30, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" }}>{s.etichetta}</div>
+          <div style={{ color: t.etichetta, fontSize: 30, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 28 }}>{s.etichetta}</div>
           {pitto && s.chi && s.cosa ? (
             // Numero con chi e cosa (variante B, Federico 04/11/2026): il numero sta nella legenda, accanto al suo significato
             <div style={{ marginTop: 20 }}>
@@ -322,11 +322,11 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
                 </div>) : null}
             </div>); })() : null}
           {/* effetto (anca, Federico 06/11/2026: «senza niente è spoglia»): cosa migliora, senza numeri, come in Carosello */}
-          {s.illustrazione?.tipo === "effetto" ? (() => { const e = s.illustrazione; return (
-            <div style={{ background: t.carta, borderRadius: 18, padding: "28px 34px", marginTop: 40 }}>
-              <div style={{ textWrap: "pretty", color: NAVY_800, fontSize: 38, fontWeight: 800, marginBottom: 18 }}>{e.titolo}</div>
+          {s.illustrazione?.tipo === "effetto" ? (() => { const e = s.illustrazione; /* Riquadro del risultato (Federico, 10/11/2026, stile 3 su 3 prove): stessa forma della nota, bordo a sinistra in blu invece che in ambra (blu = risultato dello studio, ambra = nota); frase dello studio in grigio, risultati in grassetto */ return (
+            <div style={{ background: t.carta, borderLeft: `8px solid ${BRAND_700}`, borderRadius: 12, padding: "30px 34px", marginTop: 56 }}>
+              <div style={{ textWrap: "pretty", color: t.corpo, fontSize: 36, fontWeight: 600, lineHeight: 1.35, marginBottom: 26 }}>{e.titolo}</div>
               {e.voci.map((v, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 26, marginTop: i ? 14 : 0 }}>
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 26, marginTop: i ? 18 : 0 }}>
                   <svg width={70} height={70} viewBox="0 0 84 84" style={{ flex: "none" }}><circle cx="42" cy="42" r="42" fill="#E3EEFB" /><path d={e.frecce?.[i] === "su" ? "M42 64 V24 M26 38 L42 22 L58 38" : "M42 20 V60 M26 46 L42 62 L58 46"} fill="none" stroke={BRAND_700} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" /></svg>
                   <div style={{ textWrap: "pretty", color: NAVY_800, fontSize: 44, fontWeight: 800 }}>{v}</div>
                 </div>
