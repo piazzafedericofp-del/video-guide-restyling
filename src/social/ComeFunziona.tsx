@@ -237,7 +237,9 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
           </div>
           <Disegno html={svg(0)} scritte={s.scritte} style={{ flex: "1 1 0", marginTop: 18 }} />
           {s.frase ? (
-            <div style={{ flex: "none", background: t.carta, borderRadius: 24, padding: "30px 36px 26px", marginTop: 14 }}>
+            // Svolta (Federico, 10/11/2026, variante 1 su 3): il racconto di «che cosa aiuta» sta nel riquadro bianco con il bordo
+            // blu, come il risultato degli studi, così la 4 si stacca dal meccanismo delle 2-3 (sabbia) e si lega alla 5
+            <div style={{ flex: "none", padding: "30px 36px 26px", marginTop: 14, ...(s.svolta ? { background: "white", border: "2px solid #E2E8F0", borderLeft: `8px solid ${BRAND_700}`, borderRadius: 12 } : { background: t.carta, borderRadius: 24 }) }}>
               <div data-paragrafo style={{ textWrap: "pretty", color: t.corpo, fontSize: 36, fontWeight: 500, lineHeight: 1.42 }}>{grassetto(lega(s.frase))}</div>
               {s.fonte ? <div style={{ color: t.debole, fontSize: 28, fontWeight: 500, marginTop: 14 }}>Fonte: {s.fonte}</div> : null}
             </div>
