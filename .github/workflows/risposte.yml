@@ -1,0 +1,117 @@
+# Proposte di risposta ai commenti di @fisioconfede (10/11/2026, skill risposte-coerenti nel repo federicopiazza.com).
+# Federico: «lettura di tutti i commenti di tutti i social con la possibilità di rispondere direttamente in dashboard con
+# commento generato da Claude e che io debbo solo approvarlo»; scelta del 10/11: «Routine col mio piano».
+# Lo avvia solo la dashboard (src/risposte.ts, avviaRisposte) quando ci sono commenti nuovi. Gratis (repo pubblico).
+# 1. legge dalla dashboard i commenti in attesa e i post usciti, toglie i nomi delle persone e scrive
+#    video-guide-media/risposte/<giro>/lavoro.json (repo privato);
+# 2. apre l'issue «risposte-<giro>» in questo repo: è l'evento della routine «Commenti - risposte» (nessun'altra routine
+#    ascolta le issue, e il titolo non contiene testi);
+# 3. aspetta risultato.json della routine (al massimo 90 minuti), consegna le proposte alla dashboard, chiude l'issue e
+#    toglie la cartella del giro. Nei log solo id e numeri, mai i testi.
+name: Risposte ai commenti
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: risposte
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  REVISIONE_TOKEN: ${{ secrets.REVISIONE_TOKEN }}
+  DASHBOARD: https://fisioconfede-social.fisioconfede-social.workers.dev
+  GIRO: ${{ github.run_id }}
+
+jobs:
+  risposte:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    steps:
+      - name: Progetto privato (solo la cartella risposte)
+        uses: actions/checkout@v4
+        with:
+          repository: piazzafedericofp-del/video-guide-media
+          token: ${{ secrets.MEDIA_TOKEN }}
+          path: media
+          sparse-checkout: |
+            risposte
+
+      - name: Commenti in attesa
+        id: lavoro
+        run: |
+          python3 - <<'EOF'
+          import json, os, urllib.request
+          B, T, G = os.environ["DASHBOARD"], os.environ["REVISIONE_TOKEN"], os.environ["GIRO"]
+          r = urllib.request.Request(B + "/api/commenti/da-proporre?quanti=30&catalogo=1", headers={"authorization": "Bearer " + T, "user-agent": "risposte-actions/1.0"})
+          d = json.load(urllib.request.urlopen(r, timeout=90))
+          # I nomi delle persone non servono a scrivere la risposta: non entrano nel repo
+          for v in d["voci"]:
+              v.pop("autore", None)
+              for f in v.get("filo", []):
+                  f["autore"] = "io" if f.get("mia") else ""
+          print("commenti da proporre:", len(d["voci"]))
+          with open(os.environ["GITHUB_OUTPUT"], "a") as o: o.write(f"quanti={len(d['voci'])}\n")
+          if d["voci"]:
+              os.makedirs(f"media/risposte/{G}", exist_ok=True)
+              json.dump({"giro": G, "voci": d["voci"], "social_pubblicati": d.get("social_pubblicati", [])},
+                        open(f"media/risposte/{G}/lavoro.json", "w"), ensure_ascii=False, indent=1)
+          EOF
+          if [ -d "media/risposte/$GIRO" ]; then
+            cd media
+            git config user.name "risposte"; git config user.email "render@users.noreply.github.com"
+            git add -A risposte && git commit -q -m "risposte: lavoro $GIRO"
+            for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
+          fi
+
+      - name: Segnale alla routine
+        if: steps.lavoro.outputs.quanti != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create -R "$GITHUB_REPOSITORY" --title "risposte-$GIRO" \
+            --body "Segnale per la routine «Commenti - risposte» (giro $GIRO). Nessun testo qui: il lavoro è nel repo privato."
+
+      - name: Attesa della routine e consegna
+        if: steps.lavoro.outputs.quanti != '0'
+        run: |
+          python3 - <<'EOF'
+          import json, os, subprocess, time, urllib.request
+          B, T, G = os.environ["DASHBOARD"], os.environ["REVISIONE_TOKEN"], os.environ["GIRO"]
+          f = f"media/risposte/{G}/risultato.json"
+          for i in range(1, 271):  # ogni 20 secondi, al massimo 90 minuti
+              time.sleep(20)
+              subprocess.run("git -C media fetch -q origin main && git -C media checkout -q -B main origin/main", shell=True, check=True)
+              if os.path.exists(f): break
+          else:
+              print("nessuna risposta dalla routine in 90 minuti: i commenti restano in attesa per il prossimo avvio")
+              raise SystemExit(0)
+          r = json.load(open(f))
+          proposte = r.get("proposte", [])
+          if proposte:
+              req = urllib.request.Request(B + "/api/commenti/proposte", method="POST", data=json.dumps({"proposte": proposte}).encode(),
+                  headers={"authorization": "Bearer " + T, "content-type": "application/json", "user-agent": "risposte-actions/1.0"})
+              esito = json.load(urllib.request.urlopen(req, timeout=60))
+              print("proposte consegnate:", esito.get("salvate"), "scartate:", len(esito.get("scartate", [])))
+              for s in esito.get("scartate", []): print("  scartata:", s.split(":")[0], "·", s.split(":", 1)[-1].strip()[:60])
+          else:
+              print("la routine non ha scritto proposte:", r.get("nota", "")[:200])
+          EOF
+
+      - name: Pulizia (issue chiusa, cartella del giro tolta)
+        if: always() && steps.lavoro.outputs.quanti != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for n in $(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "risposte- in:title" --json number,title --jq '.[] | select(.title | startswith("risposte-")) | .number'); do
+            gh issue close "$n" -R "$GITHUB_REPOSITORY" --reason completed >/dev/null
+          done
+          cd media
+          git fetch -q origin main && git checkout -q -B main origin/main
+          if [ -d "risposte/$GIRO" ]; then
+            git rm -rq "risposte/$GIRO" && git commit -q -m "risposte: giro $GIRO chiuso"
+            for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
+          fi
