@@ -209,6 +209,8 @@ jobs:
           mkdir -p out/consegna
           # Foto: girato, clip, immagine in dashboard (r2:) o generata con l'IA (ia, campo prompt)
           bash scripts/social/prepara-foto.sh "$ID" "$D"
+          # Slide «esercizio» (11/11/2026): video e due fotogrammi dal girato di Federico (clip dell'archivio); senza la slide non fa niente
+          bash scripts/social/prepara-esercizio.sh "$D"
           node scripts/social/misura-carosello.mjs Carosello out/consegna/c45
           node scripts/social/misura-carosello.mjs Carosello916 out/consegna/c916
           # Esito completo solo nel progetto privato (errore.txt): nei log pubblici niente testi

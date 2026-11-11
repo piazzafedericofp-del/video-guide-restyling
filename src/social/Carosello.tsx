@@ -99,6 +99,11 @@ export type Slide =
   // alto ma nella legenda accanto all'omino colorato, sotto "chi" (le persone); la frase allora non serve.
   | { tipo: "dato"; etichetta: string; numero?: string; frase?: string; chi?: string; cosa?: string; altri?: string; nota?: string; fonte: string; illustrazione?: Illustrazione }
   | { tipo: "lista"; titolo: string; segno: "si" | "no" | "attenzione"; voci: string[]; nota?: string; icone?: NomeIcona[]; scuro?: boolean }
+  // esercizio (11/11/2026, Federico: «dare un esercizio… qualcosa di concreto in mano»): nei «Cosa dicono gli studi» un solo
+  // esercizio mostrato da Federico, solo se esiste un suo girato (clip dell'archivio). Video su Instagram (esercizio.mp4),
+  // due fotogrammi affiancati altrove (esercizio-1.jpg, esercizio-2.jpg, con le `scritte` sotto), i passi numerati accanto.
+  // I file li prepara scripts/social/prepara-esercizio.sh da clip, da, durata, ritaglio e secondi.
+  | { tipo: "esercizio"; titolo: string; passi: string[]; scritte?: [string, string]; clip: string; da: number; durata: number; ritaglio?: string; secondi: [number, number] }
   // pratica (08/11/2026, Federico: «Cosa fare» e «Cosa evitare» in una slide sola, stile F3 scelto su 7 prove): due colonne
   // «✓ Sì» e «✕ No», 2 voci per parte, un disegno per voce. Le tessere del Sì sono blu piene (come la barra che vince nella
   // slide dei dati e il pulsante della chiusura), quelle del No bianche col bordo grigio. I disegni li sceglie la routine dal
@@ -151,6 +156,7 @@ const legaSlide = (s: Slide): Slide => {
 export const durataAnimata = (s: Slide) =>
   s.tipo === "chiusura" && s.guida ? 9
   : s.tipo === "dato" && (s.illustrazione?.tipo === "barre" || (s.illustrazione?.tipo === "pittogramma" && s.illustrazione.totale <= 10)) ? 6
+  : s.tipo === "esercizio" ? Math.max(3, Math.min(12, s.durata))
   : 0;
 
 const Tempo = createContext(false);
@@ -700,6 +706,47 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
   }
 
   if (s.tipo === "pratica") return <Pratica s={s} t={t} n={n} tot={tot} base={base} />;
+
+  // Esercizio mostrato da Federico (11/11/2026): riquadro di 420 px accanto ai passi (i vecchi Reel dell'archivio
+  // sono compressi: più grande sgranerebbe); titolo con gli a capo scritti; passi numerati come li direbbe a un paziente
+  if (s.tipo === "esercizio") {
+    const W = 420, H = 560;
+    return (
+      <AbsoluteFill style={base}>
+        <Cornice n={n} tot={tot} colore={t.debole}>
+          <Contenuto>
+            <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 66, fontWeight: 800, lineHeight: 1.1, marginBottom: 44, whiteSpace: "pre-line" }}>{s.titolo}</div>
+            <div style={{ display: "flex", gap: 40, alignItems: "flex-start" }}>
+              <div style={{ flex: "none", width: W }}>
+                <div style={{ position: "relative", width: W, height: H, borderRadius: 22, overflow: "hidden", background: NAVY_800 }}>
+                  {animato ? (
+                    <OffthreadVideo src={staticFile("esercizio.mp4")} muted style={{ width: W, height: H, objectFit: "cover" }} />
+                  ) : (
+                    <div style={{ display: "flex", gap: 4, width: W, height: H, background: "white" }}>
+                      {["esercizio-1.jpg", "esercizio-2.jpg"].map((im) => <Img key={im} src={staticFile(im)} style={{ width: (W - 4) / 2, height: H, objectFit: "cover" }} />)}
+                    </div>
+                  )}
+                </div>
+                {!animato && s.scritte ? (
+                  <div style={{ display: "flex", gap: 4, marginTop: 10 }}>
+                    {s.scritte.map((x) => <div key={x} style={{ width: (W - 4) / 2, textAlign: "center", color: SLATE_600, fontSize: 28, fontWeight: 700 }}>{x}</div>)}
+                  </div>
+                ) : null}
+              </div>
+              <div style={{ flex: "1 1 0", display: "flex", flexDirection: "column", gap: 30 }}>
+                {s.passi.map((v, i) => (
+                  <div key={i} style={{ display: "flex", gap: 18, alignItems: "flex-start" }}>
+                    <div style={{ flex: "none", width: 52, height: 52, borderRadius: 26, background: BRAND_700, color: "white", fontSize: 30, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", marginTop: 2 }}>{i + 1}</div>
+                    <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 38, fontWeight: 700, lineHeight: 1.25 }}>{lega(v)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Contenuto>
+        </Cornice>
+      </AbsoluteFill>
+    );
+  }
 
   if (s.tipo === "lista") {
     // Campanelli d'allarme su navy: cambio di registro visibile, l'ambra del "!" risalta
