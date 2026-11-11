@@ -103,7 +103,11 @@ export type Slide =
   // esercizio mostrato da Federico, solo se esiste un suo girato (clip dell'archivio). Video su Instagram (esercizio.mp4),
   // due fotogrammi affiancati altrove (esercizio-1.jpg, esercizio-2.jpg, con le `scritte` sotto), i passi numerati accanto.
   // I file li prepara scripts/social/prepara-esercizio.sh da clip, da, durata, ritaglio e secondi.
-  | { tipo: "esercizio"; titolo: string; passi: string[]; scritte?: [string, string]; clip: string; da: number; durata: number; ritaglio?: string; secondi: [number, number] }
+  // Senza girato (11/11/2026 sera, Federico: «ok il disegno… scrivi 10 ripetizioni per 3 serie»): l'esercizio dello studio del
+  // carosello, con un disegno a mano in due tempi in alto e largo (`disegno` = nome nel catalogo video-guide-media/social/disegni/
+  // disegni.json, sezione «esercizi»; `disegni.py metti` copia i due SVG 447x300 in `disegnoSvg`), i passi sotto, la `fonte`
+  // dello studio in fondo; slide ferma ovunque (niente video).
+  | { tipo: "esercizio"; titolo: string; passi: string[]; scritte?: [string, string]; clip?: string; da?: number; durata?: number; ritaglio?: string; secondi?: [number, number]; disegno?: string; disegnoSvg?: [string, string]; fonte?: string }
   // pratica (08/11/2026, Federico: «Cosa fare» e «Cosa evitare» in una slide sola, stile F3 scelto su 7 prove): due colonne
   // «✓ Sì» e «✕ No», 2 voci per parte, un disegno per voce. Le tessere del Sì sono blu piene (come la barra che vince nella
   // slide dei dati e il pulsante della chiusura), quelle del No bianche col bordo grigio. I disegni li sceglie la routine dal
@@ -156,7 +160,7 @@ const legaSlide = (s: Slide): Slide => {
 export const durataAnimata = (s: Slide) =>
   s.tipo === "chiusura" && s.guida ? 9
   : s.tipo === "dato" && (s.illustrazione?.tipo === "barre" || (s.illustrazione?.tipo === "pittogramma" && s.illustrazione.totale <= 10)) ? 6
-  : s.tipo === "esercizio" ? Math.max(3, Math.min(12, s.durata))
+  : s.tipo === "esercizio" && s.clip ? Math.max(3, Math.min(12, s.durata ?? 6))
   : 0;
 
 const Tempo = createContext(false);
@@ -709,6 +713,39 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
 
   // Esercizio mostrato da Federico (11/11/2026): riquadro di 420 px accanto ai passi (i vecchi Reel dell'archivio
   // sono compressi: più grande sgranerebbe); titolo con gli a capo scritti; passi numerati come li direbbe a un paziente
+  if (s.tipo === "esercizio" && !s.clip) {
+    // Esercizio dallo studio con il disegno (11/11/2026 sera): disegno in alto, largo e stretto sul gesto; passi sotto
+    const W = 900, H = 300;
+    return (
+      <AbsoluteFill style={base}>
+        <Cornice n={n} tot={tot} colore={t.debole}>
+          <Contenuto>
+            <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 62, fontWeight: 800, lineHeight: 1.1, marginBottom: 36, whiteSpace: "pre-line" }}>{s.titolo}</div>
+            <div style={{ display: "flex", gap: 6, width: W, height: H, borderRadius: 22, overflow: "hidden", background: "#E2E8F0" }}>
+              {[0, 1].map((i) => (
+                <div key={i} style={{ width: (W - 6) / 2, height: H, background: "white" }}>
+                  {s.disegnoSvg ? <div style={{ width: "100%", height: "100%" }} dangerouslySetInnerHTML={{ __html: s.disegnoSvg[i].replace("<svg", '<svg width="100%" height="100%" preserveAspectRatio="xMidYMid slice"') }} /> : null}
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 6, marginTop: 10, marginBottom: 34 }}>
+              {(s.scritte ?? []).map((x) => <div key={x} style={{ width: (W - 6) / 2, textAlign: "center", color: SLATE_600, fontSize: 30, fontWeight: 700 }}>{x}</div>)}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+              {s.passi.map((v, i) => (
+                <div key={i} style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
+                  <div style={{ flex: "none", width: 54, height: 54, borderRadius: 27, background: BRAND_700, color: "white", fontSize: 30, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</div>
+                  <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 38, fontWeight: 700, lineHeight: 1.25 }}>{lega(v)}</div>
+                </div>
+              ))}
+            </div>
+            {s.fonte ? <div style={{ marginTop: 24, color: t.debole, fontSize: 28, fontWeight: 500 }}>Fonte: {s.fonte}</div> : null}
+          </Contenuto>
+        </Cornice>
+      </AbsoluteFill>
+    );
+  }
+
   if (s.tipo === "esercizio") {
     const W = 420, H = 560;
     return (

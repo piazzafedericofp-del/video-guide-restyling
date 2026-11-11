@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Slide «esercizio» di un carosello «Cosa dicono gli studi» (11/11/2026): dal girato di Federico (clip dell'archivio)
 # prepara in public/ il video per Instagram (esercizio.mp4) e i due fotogrammi fermi per Facebook e TikTok
-# (esercizio-1.jpg, esercizio-2.jpg). Senza una slide «esercizio» non fa niente.
+# (esercizio-1.jpg, esercizio-2.jpg). Senza una slide «esercizio», o con una slide «esercizio» col disegno (senza clip), non fa niente.
 # Uso: bash scripts/social/prepara-esercizio.sh <dati.json>
 #   CLIP_LOCALE=<file.mp4> per le prove sul Mac (salta lo scaricamento dall'archivio)
 # Campi della slide: clip (id nell'archivio clip-social), da e durata (secondi del video), ritaglio ("larghezza:altezza:x:y"
@@ -11,6 +11,8 @@ set -euo pipefail
 D=$1
 E=$(jq -c '[.props.slide[]? | select(.tipo == "esercizio")] | .[0] // empty' "$D")
 [ -n "$E" ] || exit 0
+# Senza girato (11/11/2026 sera) la slide ha il disegno a mano dentro il componente: niente da preparare
+[ "$(jq -r '.clip // empty' <<< "$E")" ] || { echo "esercizio con il disegno: niente da preparare"; exit 0; }
 CLIP=$(jq -r .clip <<< "$E"); DA=$(jq -r .da <<< "$E"); DUR=$(jq -r .durata <<< "$E")
 RIT=$(jq -r '.ritaglio // empty | split(":") | map("iw*\(.)/480") | join(":")' <<< "$E"); T1=$(jq -r '.secondi[0]' <<< "$E"); T2=$(jq -r '.secondi[1]' <<< "$E")
 if [ -n "${CLIP_LOCALE:-}" ]; then SRC=$CLIP_LOCALE; else
