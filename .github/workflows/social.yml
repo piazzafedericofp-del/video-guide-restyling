@@ -90,12 +90,29 @@ jobs:
           cache: npm
           cache-dependency-path: codice/package-lock.json
 
+      # Limite e secondo tentativo (Federico, 11/11/2026): alle 14:02 e alle 15:40 UTC questo passo è rimasto fermo 65 minuti
+      # su un download e il render è fallito dopo più di un'ora. Ora si ferma a 15 minuti e riprova una volta da capo.
       - name: Strumenti
+        id: strumenti
         if: steps.scelta.outputs.id != ''
+        timeout-minutes: 15
+        continue-on-error: true
         working-directory: codice
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg jq libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libgbm1 \
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -qq ffmpeg jq libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libgbm1 \
+            libxcomposite1 libxdamage1 libxrandr2 libpango-1.0-0 libcairo2 libasound2t64 libcups2 libgl1 libglib2.0-0 libegl1 libgles2 >/dev/null
+          pip install -q pillow numpy librosa
+          npm ci --no-audit --no-fund
+          npx remotion browser ensure
+
+      - name: Strumenti (secondo tentativo)
+        if: steps.scelta.outputs.id != '' && steps.strumenti.outcome == 'failure'
+        timeout-minutes: 15
+        working-directory: codice
+        run: |
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update -qq
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y -qq ffmpeg jq libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libgbm1 \
             libxcomposite1 libxdamage1 libxrandr2 libpango-1.0-0 libcairo2 libasound2t64 libcups2 libgl1 libglib2.0-0 libegl1 libgles2 >/dev/null
           pip install -q pillow numpy librosa
           npm ci --no-audit --no-fund
