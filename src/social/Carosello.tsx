@@ -107,7 +107,7 @@ export type Slide =
   // carosello, con un disegno a mano in due tempi in alto e largo (`disegno` = nome nel catalogo video-guide-media/social/disegni/
   // disegni.json, sezione «esercizi»; `disegni.py metti` copia i due SVG 447x300 in `disegnoSvg`), i passi sotto, la `fonte`
   // dello studio in fondo; slide ferma ovunque (niente video).
-  | { tipo: "esercizio"; titolo: string; passi: string[]; scritte?: [string, string]; clip?: string; da?: number; durata?: number; ritaglio?: string; secondi?: [number, number]; disegno?: string; disegnoSvg?: [string, string]; fonte?: string }
+  | { tipo: "esercizio"; titolo: string; passi: string[]; scritte?: [string, string]; clip?: string; da?: number; durata?: number; ritaglio?: string; secondi?: [number, number]; frecce?: [number, number, number, number][]; disegno?: string; disegnoSvg?: [string, string]; fonte?: string }
   // pratica (08/11/2026, Federico: «Cosa fare» e «Cosa evitare» in una slide sola, stile F3 scelto su 7 prove): due colonne
   // «✓ Sì» e «✕ No», 2 voci per parte, un disegno per voce. Le tessere del Sì sono blu piene (come la barra che vince nella
   // slide dei dati e il pulsante della chiusura), quelle del No bianche col bordo grigio. I disegni li sceglie la routine dal
@@ -307,6 +307,20 @@ const BarraSeServe: React.FC<{ n: number; tot: number }> = ({ n, tot }) => {
 
 // Chiusura (29/10/2026): freccia disegnata nel pulsante, titolo con le parole del problema su fondo ambra
 // e titolo più piccolo se una riga è lunga (le righe si spezzano con "\n" nei dati)
+// Freccia blu del movimento sopra una foto (11/11/2026): blu del sito con un bordo bianco, perché si legga su ogni sfondo
+const FrecciaFoto: React.FC<{ f: [number, number, number, number]; w: number; h: number }> = ({ f, w, h }) => {
+  const [x1, y1, x2, y2] = [f[0] * w / 100, f[1] * h / 100, f[2] * w / 100, f[3] * h / 100];
+  const a = Math.atan2(y2 - y1, x2 - x1), L = 26, A = 0.55;
+  const punta = `${x2},${y2} ${x2 - L * Math.cos(a - A)},${y2 - L * Math.sin(a - A)} ${x2 - L * Math.cos(a + A)},${y2 - L * Math.sin(a + A)}`;
+  const fine = [x2 - 16 * Math.cos(a), y2 - 16 * Math.sin(a)];
+  return (
+    <svg width={w} height={h} style={{ position: "absolute", left: 0, top: 0 }}>
+      <line x1={x1} y1={y1} x2={fine[0]} y2={fine[1]} stroke="white" strokeWidth={15} strokeLinecap="round" />
+      <polygon points={punta} fill={BRAND_700} stroke="white" strokeWidth={6} strokeLinejoin="round" paintOrder="stroke" />
+      <line x1={x1} y1={y1} x2={fine[0]} y2={fine[1]} stroke={BRAND_700} strokeWidth={8} strokeLinecap="round" />
+    </svg>
+  );
+};
 const Freccia: React.FC<{ lato: number }> = ({ lato }) => (
   <svg width={lato} height={lato} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
 );
@@ -760,7 +774,15 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
                     <OffthreadVideo src={staticFile("esercizio.mp4")} muted style={{ width: W, height: H, objectFit: "cover" }} />
                   ) : (
                     <div style={{ display: "flex", gap: 4, width: W, height: H, background: "white" }}>
-                      {["esercizio-1.jpg", "esercizio-2.jpg"].map((im) => <Img key={im} src={staticFile(im)} style={{ width: (W - 4) / 2, height: H, objectFit: "cover" }} />)}
+                      {["esercizio-1.jpg", "esercizio-2.jpg"].map((im, i) => (
+                        // Frecce del movimento sui fotogrammi fermi (Federico, 11/11/2026: «puoi mettere delle frecce per capire
+                        // meglio il movimento?»): una per fotogramma, [x1, y1, x2, y2] in % del fotogramma, calcolate dalla posa
+                        // (scripts/social/frecce-esercizio.py), nello spazio libero vicino a ciò che si muove, mai sul viso
+                        <div key={im} style={{ position: "relative", width: (W - 4) / 2, height: H }}>
+                          <Img src={staticFile(im)} style={{ width: "100%", height: H, objectFit: "cover" }} />
+                          {s.frecce?.[i] ? <FrecciaFoto f={s.frecce[i]} w={(W - 4) / 2} h={H} /> : null}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
