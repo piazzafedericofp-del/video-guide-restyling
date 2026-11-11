@@ -23,7 +23,7 @@ Righe "✗" = da correggere (il render si ferma e la routine corregge una volta)
    fino al 03/11 al massimo 29°. Da 45° è una ✗, da 30° un avviso.
 7. Misure dei testi (11/11/2026): righe del gancio ≤ 13 caratteri, del perché ≤ 24, al massimo 3 passi,
    nessuna promessa a schermo (✗); seconda riga dell'invito ≤ 18, parole del gancio, sottotitolo di copertina, durata e parola del
-   problema uguale in copertina, gancio e invito (avvisi).
+   problema uguale in copertina, gancio e invito (avvisi); dall'11/11/2026 anche il perché che ripete le parole del gancio (avviso).
 """
 import json
 import math
@@ -458,6 +458,17 @@ if isinstance(c, dict):
         if problema and mancano and not g.get("parlato"):
             avvisi.append(f"filo: «{' '.join(mancano)}» è il problema in giallo sulla copertina ma non c'è nel testo di {dove} "
                           "(una sola parola del problema, identica in gancio, invito e copertina: skill, prova del filo punto 1)")
+# Il perché non ripete le parole del titolo (Federico, 11/11/2026: «nel testo dopo non ripetere sempre le stesse parole del
+# titolo sennò diventa ridondante»): riprende il problema con un pronome o nomina la parte allenata. Avviso, non ✗: i Reel
+# approvati prima di questa regola si rifanno solo col tasto «Rigeneralo», e il render li ricontrolla.
+if not g.get("parlato"):
+    vuote = {"hai", "quando", "dopo", "senti", "stai", "sono", "molto", "anche", "così", "questo", "questi", "modo", "come"}
+    nel_gancio = {w for w in parole_di(" ".join(g.get("righe") or [])) if len(w) > 3 and w not in vuote}
+    radice = lambda w: w[:5]  # spalla/spalle, rigido/rigida: stessa parola con un'altra desinenza
+    ripetute = [w for w in parole_di(p["perche"]["testo"]) if len(w) > 3 and radice(w) in {radice(x) for x in nel_gancio}]
+    if ripetute:
+        avvisi.append(f"perché: ripete «{' '.join(dict.fromkeys(ripetute))}» del gancio; riprendi il problema con un pronome "
+                      "(«Rinforzale in questo modo») o nomina la parte allenata (skill, momento 2, regola dell'11/11/2026)")
 for dove, testo in a_schermo:
     if (m := VIETATE.search(str(testo))):
         errori.append(f"{dove}: «{m.group(0)}» è una promessa di risultato, vietata (skill: mai elimina, risolve, guarisce)")
