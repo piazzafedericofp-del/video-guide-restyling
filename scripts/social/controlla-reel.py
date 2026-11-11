@@ -21,6 +21,9 @@ Righe "✗" = da correggere (il render si ferma e la routine corregge una volta)
    direzione della freccia, fotogramma per fotogramma come la disegna il modello, non deve girare avanti e indietro.
    Si conta l'andirivieni in gradi (giri totali meno il giro netto): il bacino bocciato faceva 82°, le frecce approvate
    fino al 03/11 al massimo 29°. Da 45° è una ✗, da 30° un avviso.
+7. Misure dei testi (11/11/2026): righe del gancio ≤ 13 caratteri, del perché ≤ 24, al massimo 3 passi,
+   nessuna promessa a schermo (✗); seconda riga dell'invito ≤ 18, parole del gancio, sottotitolo di copertina, durata e parola del
+   problema uguale in copertina, gancio e invito (avvisi).
 """
 import json
 import math
@@ -411,6 +414,55 @@ for n, fr in enumerate(p.get("frecce") or [], 1):
         errori.append(f"{nome}: la punta gira avanti e indietro di {andirivieni:.0f}° mentre avanza, traballa: {rimedio}")
     elif andirivieni >= 30:
         avvisi.append(f"{nome}: la punta gira avanti e indietro di {andirivieni:.0f}°, al limite (il bacino bocciato ne faceva 82): {rimedio}")
+
+# ─── 7. Misure dei testi scritte nella skill (audit dell'11/11/2026) ───
+# Erano regole controllate solo a occhio e dal revisore (170-190 mila token a giro): qui costano zero. ✗ solo dove la
+# misura è netta (il testo si rimpicciolisce o tocca la firma, promesse vietate); il resto è un avviso, perché decide chi legge.
+import re
+
+parole_di = lambda t: re.findall(r"[a-zà-ù']+", str(t).lower())
+if not g.get("parlato"):
+    for r in g["righe"]:
+        if len(r) > 13:
+            errori.append(f"gancio: la riga «{r}» ha {len(r)} caratteri, al massimo 13 (oltre il titolo scende sotto ~60 px e sembra "
+                          "una didascalia): spezzala, anche su 3 righe")
+    n = len(parole_di(" ".join(g["righe"])))
+    if not 3 <= n <= 8:
+        avvisi.append(f"gancio: {n} parole, la skill ne chiede 3-8")
+rp = [r for r in str(p["perche"]["testo"]).split("\n") if r.strip()]
+for r in rp:
+    if len(r) > 24:
+        errori.append(f"perché: la riga «{r}» ha {len(r)} caratteri, al massimo 24 (rimando al video compreso)")
+if len(rp) > 2:
+    avvisi.append(f"perché: {len(rp)} righe, la skill ne chiede due")
+if len(voci) > 3:
+    errori.append(f"passi: sono {len(voci)}, al massimo 3")
+ri = [r for r in str(p["invito"]["testo"]).split("\n") if r.strip()]
+for r in ri[1:]:
+    if len(r) > 18:
+        # Avviso e non ✗: se tocca davvero la firma lo ferma controlla-zone.py (3 Reel approvati hanno righe da 19-20)
+        avvisi.append(f"invito: la riga «{r}» ha {len(r)} caratteri, la skill ne chiede al massimo 18 (oltre può andare a capo e toccare la firma)")
+VIETATE = re.compile(r"\b(elimin\w+|risolv\w+|guari\w+|addio)\b", re.I)
+a_schermo = [("gancio", " ".join(g.get("righe") or [])), ("perché", p["perche"]["testo"]), ("invito", p["invito"]["testo"])] + \
+            [(f"passo {i + 1}", v["testo"]) for i, v in enumerate(voci)]
+if isinstance(c, dict):
+    a_schermo += [("titolo di copertina", " ".join(c.get("righe") or [])), ("sottotitolo di copertina", c.get("sotto") or "")]
+    if len(parole_di(c.get("sotto") or "")) > 6:
+        avvisi.append(f"copertina: il sottotitolo ha {len(parole_di(c['sotto']))} parole, al massimo 6")
+    # Prova del filo, punto 1: la parola del problema (riga gialla della copertina) torna uguale in gancio e invito
+    gc = c.get("gialla", 0)
+    gialle = [(c.get("righe") or [])[i] for i in (gc if isinstance(gc, list) else [gc]) if i < len(c.get("righe") or [])]
+    problema = [w for w in parole_di(" ".join(gialle)) if len(w) > 3]
+    for dove, testo in (("gancio", " ".join(g.get("righe") or [])), ("invito", p["invito"]["testo"])):
+        mancano = [w for w in problema if w not in parole_di(testo)]
+        if problema and mancano and not g.get("parlato"):
+            avvisi.append(f"filo: «{' '.join(mancano)}» è il problema in giallo sulla copertina ma non c'è nel testo di {dove} "
+                          "(una sola parola del problema, identica in gancio, invito e copertina: skill, prova del filo punto 1)")
+for dove, testo in a_schermo:
+    if (m := VIETATE.search(str(testo))):
+        errori.append(f"{dove}: «{m.group(0)}» è una promessa di risultato, vietata (skill: mai elimina, risolve, guarisce)")
+if durata and not 12 <= durata <= 45:
+    avvisi.append(f"durata {durata:.1f} s: la skill chiede 15-30 s (25-45 per parlato e assaggio della guida)")
 
 for r in errori:
     print("  ✗ " + r)

@@ -7,7 +7,8 @@ correzioni di Federico del 24-30/10 erano soprattutto su grafiche ed esercizio c
 nei fotogrammi. Le misure (bordi, lettura, zoom, zone, frecce che traballano) restano a controlla-reel.py e controlla-zone.py.
 
   revisione-reel.py prepara <giro> <dati.json> [<lavoro.json>] [--lezioni <social/lezioni.json>]
-      testi.md (con le lezioni approvate da Federico per i Reel), telefono.jpg e griglia.jpg per il revisore
+      testi.md (con le lezioni approvate da Federico per i Reel), telefono.jpg, movimento.jpg (una striscia di 6
+      fotogrammi per passo, dall'11/11/2026) e griglia.jpg per il revisore
       (dopo fotogrammi-revisione.mjs nella stessa cartella)
   revisione-reel.py giro <ciclo> <dati.json> <testi.md> <verdetto.json>
       registra il giro N: scarta le critiche senza appiglio, conta blocchi/importanti/minori, salva una copia di dati e
@@ -155,11 +156,25 @@ def prepara(giro, dati_p, lavoro_p=None, lezioni_p=None):
         foglio.paste(Image.open(f).convert("RGB").resize((L, A)), (x, y))
         disegna.text((x + 8, y + A + 4), f.stem[1:].replace("-", " · ", 1), fill="black", font=carattere)
     foglio.save(giro / "telefono.jpg", quality=85)
+    # Movimento (11/11/2026): una riga per passo, 6 fotogrammi dall'entrata del testo alla fine, con il secondo sotto.
+    # Serve a E2: da un fotogramma fermo non si vede se il testo compare quando il gesto parte
+    strisce = sorted((giro / "strisce").glob("passo*.jpg")) if (giro / "strisce").is_dir() else []
+    if strisce:
+        passi = sorted({f.stem.split("-")[0] for f in strisce}, key=lambda n: int(n[5:]))
+        l, a, e = 270, 480, 34
+        mov = Image.new("RGB", (e * 3 + 6 * l, len(passi) * (a + F)), "white")
+        dis = ImageDraw.Draw(mov)
+        for r, nome in enumerate(passi):
+            dis.text((6, r * (a + F) + a // 2), nome.replace("passo", "passo "), fill="black", font=carattere)
+            for k, f in enumerate([s for s in strisce if s.stem.split("-")[0] == nome][:6]):
+                mov.paste(Image.open(f).convert("RGB").resize((l, a)), (e * 3 + k * l, r * (a + F)))
+                dis.text((e * 3 + k * l + 8, r * (a + F) + a + 4), f.stem.split("-t")[1].replace(".", ",") + " s", fill="black", font=carattere)
+        mov.save(giro / "movimento.jpg", quality=82)
     # Griglia del profilo: la copertina ritagliata 3:4 al centro e larga 390 px (prova della griglia della skill)
     if (giro / "copertina.jpg").exists():
         c = Image.open(giro / "copertina.jpg").convert("RGB").resize((1080, 1920))
         c.crop((0, 240, 1080, 1680)).resize((390, 520)).save(giro / "griglia.jpg", quality=90)
-    print(f"Giro pronto: testi.md, telefono.jpg ({len(foto)} fotogrammi)" + (", griglia.jpg" if (giro / "griglia.jpg").exists() else ""))
+    print(f"Giro pronto: testi.md, telefono.jpg ({len(foto)} fotogrammi)" + (", movimento.jpg" if strisce else "") + (", griglia.jpg" if (giro / "griglia.jpg").exists() else ""))
 
 
 # ─── i giri ───
