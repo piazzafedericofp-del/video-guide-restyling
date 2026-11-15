@@ -64,5 +64,13 @@ try:
     campi["nota_routine"] = testo[:20000]
 except Exception as e:  # noqa: BLE001
     print(f"Nota non preparata: {e}", file=sys.stderr)
+# La richiesta di Federico su cui ha lavorato questo giro (15/11/2026): se in dashboard nel frattempo ha aggiunto una nota,
+# il post resta in preparazione con la sola nota nuova invece di perderla
+try:
+    lav = json.loads((Path(sys.argv[3]).parent / "lavoro.json").read_text())
+    if lav.get("lavoro") == "modifica":
+        campi["richiesta_gestita"] = str(lav.get("richiesta_modifica") or "")
+except Exception as e:  # noqa: BLE001
+    print(f"Richiesta gestita non letta: {e}", file=sys.stderr)
 # Consegna ripetibile: rimette gli stessi campi e lo stesso stato, quindi riprova anche lei su un errore passeggero
 print(chiama(f"/api/generatore/post/{pid}", "POST", {**campi, "fase": "pronto"}, ripeti=True))
