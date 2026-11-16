@@ -15,6 +15,20 @@ from storie import carica_storie  # noqa: E402
 from caratteristiche import calcola  # noqa: E402
 
 pid, uscite, dati = sys.argv[1], Path(sys.argv[2]), json.loads(Path(sys.argv[3]).read_text())
+# Cancello del 16/11/2026 (audit: mal di testa df6b0a5f consegnato con un blocco aperto, la domanda della copertina senza
+# risposta): un carosello con blocchi aperti nella revisione non va in dashboard. Il flusso fallisce, il lavoro va in
+# «errore» e la routine lo corregge una volta (§3b punto 5 delle istruzioni).
+_restano = ((dati.get("revisione") or {}).get("restano") or {})
+if dati.get("formato") == "carosello" and int(_restano.get("blocca") or 0) > 0:
+    _msg = (f"✗ revisione: {_restano.get('blocca')} blocchi aperti ({', '.join(map(str, (dati.get('revisione') or {}).get('aperte') or []))}): "
+            "non si consegna (16/11/2026)")
+    print(_msg, file=sys.stderr)
+    try:  # «Segna errore» del flusso legge controlli.txt: con ✗ lo stato è «errore» (lo corregge la routine), non un guasto
+        with open(uscite.parent / "controlli.txt", "a", encoding="utf-8") as fh:
+            fh.write(_msg + "\n")
+    except OSError:
+        pass
+    sys.exit(1)
 t = dati["testi"]
 campi = {k: t[k] for k in ("titolo", "testo_schermo", "didascalia_ig", "didascalia_fb", "titolo_yt", "descrizione_yt", "didascalia_tt") if k in t}
 if dati["formato"] == "reel":
@@ -53,14 +67,15 @@ try:
     campi |= carica_storie(pid, uscite)
 except Exception as e:  # noqa: BLE001
     print(f"Storie non caricate: {e}", file=sys.stderr)
-# Note della generazione per Federico (08/11/2026): le domande del ciclo di revisione in testa, poi la nota intera (fonti,
-# tavole da confermare, correzioni proposte). La dashboard le mostra nella scheda da approvare
+# Note della generazione per Federico (08/11/2026): la nota intera (fonti, scelte fatte, tavole da confermare). Dal
+# 16/11/2026 i dubbi dei revisori vanno in fondo come «punti segnalati», non più «DOMANDE PER TE» in testa: dall'11/11 la
+# routine non fa domande a Federico, sceglie la forma più prudente e la scrive in «Scelte fatte» (skill, regola 1)
 try:
     nota = str(dati.get("nota_routine") or "").strip()
     domande = [str(x).strip() for x in ((dati.get("revisione") or {}).get("domande_federico") or []) if str(x).strip()]
-    testo = ("DOMANDE PER TE:\n" + "\n".join(f"{i}) {x}" for i, x in enumerate(domande, 1))) if domande else ""
-    if nota:
-        testo += ("\n\n" if testo else "") + "NOTA COMPLETA:\n" + nota
+    testo = ("NOTA COMPLETA:\n" + nota) if nota else ""
+    if domande:
+        testo += ("\n\n" if testo else "") + "PUNTI SEGNALATI DAI REVISORI (la routine ha già scelto la forma più prudente, vedi «Scelte fatte»):\n" + "\n".join(f"- {x}" for x in domande)
     campi["nota_routine"] = testo[:20000]
 except Exception as e:  # noqa: BLE001
     print(f"Nota non preparata: {e}", file=sys.stderr)
