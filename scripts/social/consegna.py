@@ -94,4 +94,8 @@ try:
 except Exception as e:  # noqa: BLE001
     print(f"Richiesta gestita non letta: {e}", file=sys.stderr)
 # Consegna ripetibile: rimette gli stessi campi e lo stesso stato, quindi riprova anche lei su un errore passeggero
+# Rifatto in sessione (17/11/2026): la sessione segna il dati.json con "consegna": "sessione" quando corregge un post già
+# «da approvare» o «approvato»; la dashboard accetta la consegna (prima: 409 e render rosso) e un post approvato torna da approvare
+if dati.get("consegna") == "sessione":
+    campi["rifatto_in_sessione"] = True
 print(chiama(f"/api/generatore/post/{pid}", "POST", {**campi, "fase": "pronto"}, ripeti=True))
