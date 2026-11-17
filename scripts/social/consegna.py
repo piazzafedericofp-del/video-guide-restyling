@@ -19,9 +19,15 @@ pid, uscite, dati = sys.argv[1], Path(sys.argv[2]), json.loads(Path(sys.argv[3])
 # risposta): un carosello con blocchi aperti nella revisione non va in dashboard. Il flusso fallisce, il lavoro va in
 # «errore» e la routine lo corregge una volta (§3b punto 5 delle istruzioni).
 _restano = ((dati.get("revisione") or {}).get("restano") or {})
-if dati.get("formato") == "carosello" and int(_restano.get("blocca") or 0) > 0:
-    _msg = (f"✗ revisione: {_restano.get('blocca')} blocchi aperti ({', '.join(map(str, (dati.get('revisione') or {}).get('aperte') or []))}): "
-            "non si consegna (16/11/2026)")
+# Dal 17/11/2026 (07ec5963 slide 4, audit indipendente): anche le frasi cambiate dopo l'ultimo giro e mai rilette
+# (revisione.non_rilette) e gli ERRORE di misura-testi (revisione.errori_misura), scritti da revisione-carosello.py riassunto.
+_rev = dati.get("revisione") or {}
+_altro = [f"{len(_rev.get('non_rilette') or [])} frasi mai rilette" if _rev.get("non_rilette") else "",
+          f"{len(_rev.get('errori_misura') or [])} ERRORE di misura-testi" if _rev.get("errori_misura") else ""]
+_altro = [x for x in _altro if x]
+if dati.get("formato") == "carosello" and (int(_restano.get("blocca") or 0) > 0 or _altro):
+    _msg = (f"✗ revisione: {_restano.get('blocca') or 0} blocchi aperti ({', '.join(map(str, _rev.get('aperte') or []))})"
+            + (f", {', '.join(_altro)}" if _altro else "") + ": non si consegna (16-17/11/2026)")
     print(_msg, file=sys.stderr)
     try:  # «Segna errore» del flusso legge controlli.txt: con ✗ lo stato è «errore» (lo corregge la routine), non un guasto
         with open(uscite.parent / "controlli.txt", "a", encoding="utf-8") as fh:
