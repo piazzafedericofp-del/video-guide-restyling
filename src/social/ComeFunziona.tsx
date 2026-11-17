@@ -330,7 +330,7 @@ const SlideLente: React.FC<PropsCome & { indice: number }> = ({ slide, verticale
               {e.voci.map((v, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 26, marginTop: i ? 18 : 0 }}>
                   <svg width={70} height={70} viewBox="0 0 84 84" style={{ flex: "none" }}><circle cx="42" cy="42" r="42" fill="#E3EEFB" /><path d={e.frecce?.[i] === "su" ? "M42 64 V24 M26 38 L42 22 L58 38" : "M42 20 V60 M26 46 L42 62 L58 46"} fill="none" stroke={BRAND_700} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  <div style={{ textWrap: "pretty", color: NAVY_800, fontSize: 44, fontWeight: 800 }}>{v}</div>
+                  <div style={{ textWrap: "pretty", color: NAVY_800, fontSize: 44, fontWeight: 800 }}>{lega(v)}</div>{/* voci legate dal 17/11/2026: «le cose di | ogni giorno», 07ec5963, due render falliti */}
                 </div>
               ))}
             </div>); })() : null}

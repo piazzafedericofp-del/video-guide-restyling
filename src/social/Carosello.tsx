@@ -143,7 +143,12 @@ const PAROLE_CORTE = new RegExp(
 );
 // e un numero resta con la sua unità ("6 mesi", "14 giorni", "2 su 3"; fascite 03/11/2026: «A 6 / mesi»)
 const UNITA = /(\d) (?=(su|mesi|mese|giorni|giorno|settimane|settimana|anni|anno|ore|ora|minuti|secondi|volte|persone|persona|studi|serie|ripetizioni)([\s\u00a0.,;:!?)]|$))/g;
-export const lega = (t: string) => t.replace(PAROLE_CORTE, "$1\u00a0").replace(UNITA, "$1\u00a0");
+// e le ultime due parole di un testo di 3 o più parole restano insieme (17/11/2026, punti tecnici della proposta di
+// riordino): una parola sola sull'ultima riga faceva fallire il render («…di ogni | giorno», 07ec5963) e text-wrap: pretty
+// non la evita sempre. testo-unico.py fa la stessa cosa nella previsione.
+const ULTIME_DUE = /(\S) (\S+)\s*$/;
+const vedova = (t: string) => (t.trim().split(/\s+/).length >= 3 ? t.split("\n").map((r) => (r.trim().split(/\s+/).length >= 3 ? r.replace(ULTIME_DUE, "$1\u00a0$2") : r)).join("\n") : t);
+export const lega = (t: string) => vedova(t.replace(PAROLE_CORTE, "$1\u00a0").replace(UNITA, "$1\u00a0"));
 const legaSlide = (s: Slide): Slide => {
   const x = { ...s } as Record<string, unknown>;
   const campi = ["sotto", "frase", "corpo", "nota", "invito", "chi", "cosa", "altri", ...("evidenza" in x && x.evidenza ? [] : ["titolo"])];
@@ -153,6 +158,14 @@ const legaSlide = (s: Slide): Slide => {
     if (s.tipo === "pratica" && p) x[parte] = { ...p, titolo: p.titolo, voci: p.voci.map((v) => lega(v)) };
   }
   if (Array.isArray(x.voci)) x.voci = x.voci.map((v) => (typeof v === "string" ? lega(v) : v && typeof v === "object" && "testo" in v ? { ...v, testo: lega(String((v as { testo: string }).testo)) } : v));
+  // Dal 17/11/2026 (Federico, punti tecnici della proposta di riordino): legate anche le voci e la frase del riquadro
+  // `effetto`, i passi della slide «esercizio» e le voci dei segni. Prima una voce dell'effetto poteva andare a capo dopo
+  // «di» («le cose di | ogni giorno», 07ec5963): controlla-carosello.py la fermava e il render falliva.
+  if (Array.isArray(x.passi)) x.passi = (x.passi as unknown[]).map((v) => (typeof v === "string" ? lega(v) : v));
+  const sg = x.segni as { titolo?: string; voci?: unknown[] } | undefined;
+  if (sg && Array.isArray(sg.voci)) x.segni = { ...sg, voci: sg.voci.map((v) => (typeof v === "string" ? lega(v) : v)) };
+  const il = x.illustrazione as { tipo?: string; titolo?: string; voci?: unknown[] } | undefined;
+  if (il && il.tipo === "effetto") x.illustrazione = { ...il, titolo: typeof il.titolo === "string" ? lega(il.titolo) : il.titolo, voci: Array.isArray(il.voci) ? il.voci.map((v) => (typeof v === "string" ? lega(v) : v)) : il.voci };
   return x as Slide;
 };
 
