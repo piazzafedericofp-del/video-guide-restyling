@@ -2,7 +2,7 @@
 # La routine Claude non raggiunge la dashboard dal suo ambiente cloud: questi due passaggi fanno da ponte
 # attraverso il progetto privato, come per Reel e caroselli.
 # 1. "dati": il 1° del mese porta i numeri del mese chiuso (GET /api/revisione/dati, solo totali, nessun dato
-#    personale) in media/revisione/<mese>/dati.json. Nei mesi di fine trimestre anche i due mesi prima.
+#    personale) in media/revisione/<mese>/dati.json, e dal 19/11/2026 le schede dei robot in schede.json. Nei mesi di fine trimestre anche i due mesi prima.
 #    Dal 30/10/2026 lo avvia la dashboard alla fine della raccolta notturna del 1° (cron delle 4:30 UTC), una volta
 #    sola: il timer di GitHub salta giri per ore e la routine delle 7:07 senza dati.json non fa la revisione.
 #    Il timer qui sotto è solo di riserva: se dati.json c'è già, non fa nulla.
@@ -77,6 +77,15 @@ jobs:
               nome = "dati.json" if i == 0 else f"dati-{x}.json"
               json.dump(dati, open(f"{cartella}/{nome}", "w"), ensure_ascii=False, indent=1)
               print(f"{nome}: ok")
+          # Schede dei robot (19/11/2026, federicopiazza.com social/src/schede.ts): stessi dati ordinati per robot,
+          # con problemi e freschezza. Se la dashboard non risponde, la revisione si fa lo stesso senza.
+          try:
+              r = urllib.request.Request(f"{os.environ['DASHBOARD']}/api/revisione/schede?mese={mese}",
+                  headers={"authorization": "Bearer " + os.environ["REVISIONE_TOKEN"], "user-agent": "revisione-actions/1.0"})
+              json.dump(json.load(urllib.request.urlopen(r, timeout=60)), open(f"{cartella}/schede.json", "w"), ensure_ascii=False, indent=1)
+              print("schede.json: ok")
+          except Exception as e:
+              print(f"schede.json: non disponibili ({type(e).__name__})")
           EOF
           cd media
           git config user.name "revisione"; git config user.email "render@users.noreply.github.com"
