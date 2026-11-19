@@ -5,6 +5,8 @@ Uscite attese: Reel → video.mp4, copertina.jpg · Carosello → c45/slide-NN.j
 + storie/ facoltativa (rendi-storie.sh): storie di Instagram e Facebook, caricate con storie.py
 Con i testi manda anche le "caratteristiche" (come è fatto il contenuto, caratteristiche.py)."""
 import json
+import re
+import subprocess
 import sys
 import urllib.parse
 from pathlib import Path
@@ -65,6 +67,17 @@ try:
     cartella = Path(sys.argv[3]).parent
     lavoro = json.loads((cartella / "lavoro.json").read_text()) if (cartella / "lavoro.json").exists() else {}
     regole = (cartella / "regole.txt").read_text() if (cartella / "regole.txt").exists() else ""
+    # 19/11/2026 (audit): i Reel scrivevano «skill reel-social» senza commit, così non si separano i Reel fatti prima e
+    # dopo una regola nuova. Se la prima riga non ha un commit, lo prende da federicopiazza.com (ramo main, in sola lettura)
+    if not re.search(r"\b[0-9a-f]{7,40}\b", regole.splitlines()[0] if regole else ""):
+        skill = "carosello-social" if dati.get("formato") == "carosello" else "reel-social"
+        for sito in (Path("/home/user/federicopiazza.com"), Path.home() / "federicopiazza.com"):
+            if (sito / ".claude/skills" / skill).exists():
+                log = subprocess.run(["git", "-C", str(sito), "log", "-1", "--format=%h %ad", "--date=short", "--", f".claude/skills/{skill}"],
+                                     capture_output=True, text=True).stdout.strip()
+                if log:
+                    regole = f"skill {skill} {log}\n{regole}"
+                break
     campi["caratteristiche"] = json.dumps(calcola(dati, lavoro, uscite, regole), ensure_ascii=False)
 except Exception as e:  # noqa: BLE001
     print(f"Caratteristiche non calcolate: {e}", file=sys.stderr)

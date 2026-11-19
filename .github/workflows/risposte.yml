@@ -57,7 +57,7 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"], "a") as o: o.write(f"quanti={len(d['voci'])}\n")
           if d["voci"]:
               os.makedirs(f"media/risposte/{G}", exist_ok=True)
-              json.dump({"giro": G, "voci": d["voci"], "social_pubblicati": d.get("social_pubblicati", [])},
+              json.dump({"giro": G, "voci": d["voci"], "social_pubblicati": d.get("social_pubblicati", []), "lezioni": d.get("lezioni", [])},
                         open(f"media/risposte/{G}/lavoro.json", "w"), ensure_ascii=False, indent=1)
           EOF
           if [ -d "media/risposte/$GIRO" ]; then

@@ -152,9 +152,12 @@ def codici(voci):
     """Codici della griglia ("F3", "Q12") da voci che sono codici, {"id": …} o testi "F3: correzione"."""
     out = []
     for v in voci if isinstance(voci, list) else []:
-        k = v.get("id") if isinstance(v, dict) else re.sub(r"^\[[^\]]*\]\s*", "", str(v)).split(":")[0].strip()
-        if k and re.fullmatch(r"[A-Z]{1,3}\d{1,3}[a-z]?", k):
-            out.append(k)
+        testo = v.get("id") if isinstance(v, dict) else re.sub(r"^\[[^\]]*\]\s*", "", str(v))
+        # 19/11/2026 (audit): le voci vere sono «W29 slide 4 (…)», «lettore R5 slide 4», «G2 freccia 1: …»; prima si
+        # accettava solo il codice da solo e queste andavano perse (2eb49502: 3 corrette, 0 codici)
+        m = re.match(r"^(?:lettore\s+)?([A-Z]{1,3}\d{1,3}[a-z]?)\b", str(testo or "").strip())
+        if m:
+            out.append(m.group(1))
     return out
 
 
