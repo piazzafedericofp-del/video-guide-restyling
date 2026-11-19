@@ -131,7 +131,7 @@ export type Slide =
 // "Scorri →": nella storia la barra si confonde con quella dell'app e non c'è niente da scorrere.
 // animato + indice (28/10/2026): una sola slide a 30 fps, gli elementi entrano col tempo (MP4 per Instagram);
 // senza, ogni fotogramma è una slide già al suo stato finale (JPEG per tutti i social).
-export type CaroselloProps = { stile: Stile; slide: Slide[]; avanzamento?: "numeri" | "barra"; controllo?: boolean; verticale?: boolean; firma?: boolean; animato?: boolean; indice?: number; storia?: boolean };
+export type CaroselloProps = { stile: Stile; slide: Slide[]; avanzamento?: "numeri" | "barra" | "tacche"; controllo?: boolean; verticale?: boolean; firma?: boolean; animato?: boolean; indice?: number; storia?: boolean };
 
 // A capo (03/11/2026, ripasso dei caroselli: in 5 slide su 8 le righe finivano con «il», «di», «con», «o»): una riga
 // non finisce con un articolo, una preposizione, «e», «o», «non», «che» (si legano alla parola dopo con uno spazio
@@ -188,7 +188,7 @@ const entra = (f: number, fps: number, da: number) => spring({ frame: f - da * f
 
 const SCALA_VERTICALE = 0.9;
 
-const Avanzamento = createContext<{ barra: boolean; scuro: boolean; firma: boolean; storia?: boolean }>({ barra: false, scuro: false, firma: false });
+const Avanzamento = createContext<{ barra: boolean; scuro: boolean; firma: boolean; storia?: boolean; tacche?: boolean }>({ barra: false, scuro: false, firma: false });
 
 // Ritratto intero (ritratto.png ha lo sfondo bianco): in una tessera bianca, si vede su bianco e su sabbia.
 // Federico 23/10: il solo viso nel cerchio "è brutto", vuole la figura intera.
@@ -210,11 +210,23 @@ const Firma: React.FC<{ coloreNome: string; colore: string }> = ({ coloreNome, c
 
 // Barra di avanzamento sottile in alto, senza numeri (scelta di Federico 17/10 sul confronto numeri/barra).
 // suFoto: binario scuro trasparente, perché sul muro chiaro della foto quello bianco sparisce.
-const Barra: React.FC<{ n: number; tot: number; scuro: boolean; suFoto?: boolean }> = ({ n, tot, scuro, suFoto }) => (
-  <div style={{ position: "absolute", left: 90, right: 90, top: 48, height: 8, borderRadius: 4, background: suFoto ? "rgba(11,36,71,0.45)" : scuro ? "rgba(255,255,255,0.3)" : "rgba(11,36,71,0.12)" }}>
-    <div style={{ width: `${(n / tot) * 100}%`, height: "100%", borderRadius: 4, background: scuro ? AMBER_400 : BRAND_700 }} />
-  </div>
-);
+// tacche (19/11/2026, Federico: «quando arrivo alla slide dell'esercizio la barra in alto perde la continuità delle altre e
+// diventa tutta lunga»): nei «Come funziona» le slide che disegna questo componente (esercizio, copertina con la foto,
+// chiusura verso lo studio) usano le stesse tacche di ComeFunziona.tsx, una per slide.
+const Barra: React.FC<{ n: number; tot: number; scuro: boolean; suFoto?: boolean }> = ({ n, tot, scuro, suFoto }) => {
+  const av = useContext(Avanzamento);
+  if (av.tacche)
+    return (
+      <div style={{ position: "absolute", left: 90, right: 90, top: 46, display: "flex", gap: 8 }}>
+        {Array.from({ length: tot }, (_, i) => <div key={i} style={{ flex: 1, height: 10, borderRadius: 5, background: i < n ? (scuro ? AMBER_400 : BRAND_700) : scuro ? "rgba(255,255,255,0.3)" : suFoto ? "rgba(11,36,71,0.45)" : "#E2E8F0" }} />)}
+      </div>
+    );
+  return (
+    <div style={{ position: "absolute", left: 90, right: 90, top: 48, height: 8, borderRadius: 4, background: suFoto ? "rgba(11,36,71,0.45)" : scuro ? "rgba(255,255,255,0.3)" : "rgba(11,36,71,0.12)" }}>
+      <div style={{ width: `${(n / tot) * 100}%`, height: "100%", borderRadius: 4, background: scuro ? AMBER_400 : BRAND_700 }} />
+    </div>
+  );
+};
 
 // Ritratti della firma: nessun testo deve finirci sopra (fascite 23/10: la fonte toccava la tessera).
 const misuraOstacoli = () =>
@@ -378,7 +390,7 @@ export const Carosello: React.FC<CaroselloProps> = (props) => {
   const contenuto = <Slide1 {...props} slide={slide} indice={indice} />;
   return (
     <Tempo.Provider value={!!props.animato}>
-    <Avanzamento.Provider value={{ barra: props.avanzamento === "barra", scuro: props.stile === "navy", firma: !!props.firma, storia: !!props.storia }}>
+    <Avanzamento.Provider value={{ barra: props.avanzamento === "barra" || props.avanzamento === "tacche", tacche: props.avanzamento === "tacche", scuro: props.stile === "navy", firma: !!props.firma, storia: !!props.storia }}>
       {props.verticale ? (
         <AbsoluteFill style={{ backgroundColor: sfondoSlide({ ...props, slide }, indice) }}>
           <div style={{ position: "absolute", left: 9, top: 210, width: 1080, height: 1350, transform: `scale(${SCALA_VERTICALE})`, transformOrigin: "0 0" }}>

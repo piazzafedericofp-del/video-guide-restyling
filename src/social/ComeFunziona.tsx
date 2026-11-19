@@ -134,7 +134,7 @@ export const ComeFunziona: React.FC<PropsCome> = (props) => {
   const frame = useCurrentFrame();
   const indice = props.indice ?? Math.min(frame, props.slide.length - 1);
   const s = props.slide[indice];
-  if (daCarosello(s)) return <Carosello stile="foto" avanzamento="barra" firma {...props} slide={props.slide as Slide[]} indice={indice} />;
+  if (daCarosello(s)) return <Carosello stile="foto" firma {...props} avanzamento={props.storia ? props.avanzamento : "tacche"} slide={props.slide as Slide[]} indice={indice} />;
   return <SlideLente {...props} indice={indice} />;
 };
 
