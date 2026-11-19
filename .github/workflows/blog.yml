@@ -85,6 +85,24 @@ jobs:
           for a in json.load(open("/tmp/coda.json")):
               ramo = (a.get("risultato") or {}).get("ramo") or f"claude/blog-{a['id']}"
               if a["richiesta"] == "pubblica":
+                  # 19/11/2026 (audit della revisione): la data nell'articolo è quella prevista quando è stato scritto;
+                  # con «Pubblica ora» o un giorno spostato restava nel futuro (cuffia online il 16/11 con
+                  # «Aggiornato il 28 dicembre 2026»). Prima del merge: pubDate (nuovo) o updatedDate (aggiornamento) = oggi
+                  if a.get("slug"):
+                      import base64, datetime, re, zoneinfo
+                      oggi = datetime.datetime.now(zoneinfo.ZoneInfo("Europe/Rome")).strftime("%Y-%m-%d")
+                      campo = "updatedDate" if a.get("tipo") == "aggiornamento" else "pubDate"
+                      for est in ("mdx", "md"):
+                          percorso = f"src/content/blog/{a['slug']}.{est}"
+                          c, f = gh("GET", f"/repos/{os.environ['SITO_REPO']}/contents/{percorso}?ref={ramo}")
+                          if c != 200: continue
+                          testo = base64.b64decode(f["content"]).decode()
+                          nuovo = re.sub(rf'^({campo}:\s*)"?\d{{4}}-\d{{2}}-\d{{2}}"?', rf'\g<1>"{oggi}"', testo, count=1, flags=re.M)
+                          if nuovo != testo:
+                              c2, _ = gh("PUT", f"/repos/{os.environ['SITO_REPO']}/contents/{percorso}", {"message": f"Blog: {campo} = giorno di uscita ({oggi})",
+                                         "content": base64.b64encode(nuovo.encode()).decode(), "sha": f["sha"], "branch": ramo})
+                              print(a["id"], campo, "→", oggi, "codice", c2)
+                          break
                   codice, d = gh("POST", f"/repos/{os.environ['SITO_REPO']}/merges",
                                  {"base": "main", "head": ramo, "commit_message": f"Blog: {a['titolo']} (approvato da Federico)"})
                   if codice in (201, 204):
