@@ -554,14 +554,37 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
                 {/* scena nel riquadro dei segni (gomito, 05/11/2026): il gesto del segno, con le figure delle tavole */}
                 {s.scena ? <Img src={staticFile(s.scena)} style={{ width: 200, height: 240, flex: "none" }} /> : null}
                 {s.figura === "gomito" ? (
-                  // braccio piegato visto di lato, l'esterno del gomito acceso (gomito del tennista)
-                  <svg width={200} height={240} viewBox="0 0 200 240" style={{ flex: "none" }}>
-                    <defs><radialGradient id="dolore-gomito"><stop offset="0" stopColor="#F59E0B" stopOpacity="0.9" /><stop offset="1" stopColor="#F59E0B" stopOpacity="0" /></radialGradient></defs>
-                    <path d="M40 20 L82 20 L96 150 Q98 172 80 176 L58 176 Z" fill="#E9DFCF" />
-                    <path d="M62 150 Q66 128 90 132 L176 150 Q190 154 188 170 Q186 184 170 182 L84 178 Q62 176 62 150 Z" fill="#E0D3BE" />
-                    <ellipse cx="184" cy="166" rx="14" ry="18" fill="#E9DFCF" />
-                    <ellipse cx="80" cy="160" rx="34" ry="30" fill="url(#dolore-gomito)" />
-                  </svg>
+                    // braccio di profilo col gomito piegato, nello stile dei disegni degli esercizi, con le proporzioni vere (20/11/2026, Federico:
+                    // «il gomito rendilo più realistico», poi «è sproporzionata»): l'esterno del gomito acceso (gomito del tennista)
+                    <svg width={200} height={240} viewBox="8 2 210 176" style={{ flex: "none" }}>
+                      <defs>
+                      <linearGradient id="gp-pelle" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#D9A57E"/><stop offset="0.35" stopColor="#EDC4A2"/><stop offset="1" stopColor="#E3B08A"/></linearGradient>
+                      <linearGradient id="gp-mano" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#EDC4A2"/><stop offset="0.7" stopColor="#E3B08A"/><stop offset="1" stopColor="#D49B72"/></linearGradient>
+                      <linearGradient id="gp-maglia" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#2E3B57"/><stop offset="0.5" stopColor="#3A4865"/><stop offset="1" stopColor="#33405C"/></linearGradient>
+                      <radialGradient id="gp-dolore"><stop offset="0" stopColor="#F59E0B" stopOpacity="1"/><stop offset="0.5" stopColor="#F59E0B" stopOpacity="0.65"/><stop offset="1" stopColor="#F59E0B" stopOpacity="0"/></radialGradient>
+                      </defs>
+                      {/* braccio intero di profilo (braccio destro visto dall'esterno, gomito a 90°): braccio e avambraccio lunghi quasi uguali e larghi uguali al gomito, polso stretto */}
+                      <path d="M25,32 C21,56 20,82 22,104 C23,120 24,130 26,139 C27,151 33,160 44,161 C80,160 126,156 160,152 L160,131 C140,130 118,126 100,120 C90,117 80,115 72,117 C64,119 60,126 59,134 C62,116 67,96 66,78 C65,60 62,46 61,32 Z" fill="url(#gp-pelle)" stroke="#8A5A3C" strokeWidth="2.2" strokeLinejoin="round"/>
+                      {/* piega del gomito, bicipite, riflessi, ombra sotto e punta ossea del gomito */}
+                      <path d="M59,134 C61,139 64,142 69,143" fill="none" stroke="#B97E5A" strokeWidth="1.8" opacity="0.65" strokeLinecap="round"/>
+                      <path d="M60,70 C63,86 63,102 60,116" fill="none" stroke="#B97E5A" strokeWidth="1.5" opacity="0.35" strokeLinecap="round"/>
+                      <path d="M78,121 C100,123 130,129 154,134" fill="none" stroke="#FBE3CF" strokeWidth="3" opacity="0.75" strokeLinecap="round"/>
+                      <path d="M46,56 C50,76 51,98 49,116" fill="none" stroke="#FBE3CF" strokeWidth="2.6" opacity="0.5" strokeLinecap="round"/>
+                      <path d="M50,156 C84,155 124,152 154,149" fill="none" stroke="#B97E5A" strokeWidth="2" opacity="0.3" strokeLinecap="round"/>
+                      <path d="M27,146 C29,153 34,157 41,158" fill="none" stroke="#B97E5A" strokeWidth="1.6" opacity="0.5" strokeLinecap="round"/>
+                      {/* pugno chiuso visto dal dorso, pollice sopra */}
+                      <path d="M156,133 C168,128 186,126 196,129 C203,132 206,140 206,147 C206,155 202,161 194,163 C182,165 168,162 156,152 Z" fill="url(#gp-mano)"/>
+                      <path d="M166,129 C176,127 188,126 196,129 C203,132 206,140 206,147 C206,155 202,161 194,163 C183,165 172,162 163,156" fill="none" stroke="#8A5A3C" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
+                      <path d="M193,140 C196,148 196,155 193,162" fill="none" stroke="#9C6646" strokeWidth="1.4" strokeLinecap="round"/>
+                      <path d="M195,148 C199,147 202,148 205,149 M195,155 C198,155 201,156 203,157" fill="none" stroke="#9C6646" strokeWidth="1.2" strokeLinecap="round"/>
+                      <path d="M162,136 C170,129 186,127 197,130 C202,132 202,138 197,139 C187,141 173,141 165,140" fill="url(#gp-mano)" stroke="#8A5A3C" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round"/>
+                      <path d="M172,132 C179,130 186,130 192,131" fill="none" stroke="#FBE3CF" strokeWidth="1.6" opacity="0.8" strokeLinecap="round"/>
+                      {/* manica corta della maglia */}
+                      <path d="M17,4 L68,4 L70,40 C56,45 32,45 17,40 Z" fill="url(#gp-maglia)" stroke="#1E2A40" strokeWidth="2.2" strokeLinejoin="round"/>
+                      <path d="M19,35 C34,39 54,39 68,35" fill="none" stroke="#26324A" strokeWidth="2.2"/>
+                      {/* dove fa male: l'esterno del gomito (epicondilo laterale), poco sopra e davanti alla punta del gomito */}
+                      <ellipse cx="42" cy="142" rx="24" ry="20" fill="url(#gp-dolore)"/>
+                    </svg>
                 ) : null}
                 {s.figura === "tallone" ? (
                   // piede visto di lato, la parte sotto il tallone accesa (fascite plantare)
