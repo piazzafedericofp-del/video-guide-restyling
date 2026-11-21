@@ -558,10 +558,10 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
                     // «il gomito rendilo più realistico», poi «è sproporzionata»): l'esterno del gomito acceso (gomito del tennista)
                     <svg width={200} height={240} viewBox="8 2 210 176" style={{ flex: "none" }}>
                       <defs>
-                      <linearGradient id="gp-pelle" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#D9A57E"/><stop offset="0.35" stopColor="#EDC4A2"/><stop offset="1" stopColor="#E3B08A"/></linearGradient>
-                      <linearGradient id="gp-mano" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#EDC4A2"/><stop offset="0.7" stopColor="#E3B08A"/><stop offset="1" stopColor="#D49B72"/></linearGradient>
+                      <linearGradient id="gp-pelle" gradientUnits="userSpaceOnUse" x1="20" y1="40" x2="206" y2="175"><stop offset="0" stopColor="#D9A57E"/><stop offset="0.35" stopColor="#EDC4A2"/><stop offset="1" stopColor="#E3B08A"/></linearGradient>
+                      <linearGradient id="gp-mano" gradientUnits="userSpaceOnUse" x1="20" y1="40" x2="206" y2="175"><stop offset="0" stopColor="#D9A57E"/><stop offset="0.35" stopColor="#EDC4A2"/><stop offset="1" stopColor="#E3B08A"/></linearGradient>
                       <linearGradient id="gp-maglia" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#2E3B57"/><stop offset="0.5" stopColor="#3A4865"/><stop offset="1" stopColor="#33405C"/></linearGradient>
-                      <radialGradient id="gp-dolore"><stop offset="0" stopColor="#F59E0B" stopOpacity="1"/><stop offset="0.5" stopColor="#F59E0B" stopOpacity="0.65"/><stop offset="1" stopColor="#F59E0B" stopOpacity="0"/></radialGradient>
+                      <radialGradient id="gp-dolore"><stop offset="0" stopColor="#E23B1E" stopOpacity="0.95"/><stop offset="0.45" stopColor="#F26B1D" stopOpacity="0.75"/><stop offset="1" stopColor="#F59E0B" stopOpacity="0"/></radialGradient>
                       </defs>
                       {/* braccio intero di profilo (braccio destro visto dall'esterno, gomito a 90°): braccio e avambraccio lunghi quasi uguali e larghi uguali al gomito, polso stretto */}
                       <path d="M25,32 C21,56 20,82 22,104 C23,120 24,130 26,139 C27,151 33,160 44,161 C80,160 126,156 160,152 L160,131 C140,130 118,126 100,120 C90,117 80,115 72,117 C64,119 60,126 59,134 C62,116 67,96 66,78 C65,60 62,46 61,32 Z" fill="url(#gp-pelle)" stroke="#8A5A3C" strokeWidth="2.2" strokeLinejoin="round"/>
@@ -572,37 +572,96 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
                       <path d="M46,56 C50,76 51,98 49,116" fill="none" stroke="#FBE3CF" strokeWidth="2.6" opacity="0.5" strokeLinecap="round"/>
                       <path d="M50,156 C84,155 124,152 154,149" fill="none" stroke="#B97E5A" strokeWidth="2" opacity="0.3" strokeLinecap="round"/>
                       <path d="M27,146 C29,153 34,157 41,158" fill="none" stroke="#B97E5A" strokeWidth="1.6" opacity="0.5" strokeLinecap="round"/>
-                      {/* pugno chiuso visto dal dorso, pollice sopra */}
-                      <path d="M156,133 C168,128 186,126 196,129 C203,132 206,140 206,147 C206,155 202,161 194,163 C182,165 168,162 156,152 Z" fill="url(#gp-mano)"/>
-                      <path d="M166,129 C176,127 188,126 196,129 C203,132 206,140 206,147 C206,155 202,161 194,163 C183,165 172,162 163,156" fill="none" stroke="#8A5A3C" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
-                      <path d="M193,140 C196,148 196,155 193,162" fill="none" stroke="#9C6646" strokeWidth="1.4" strokeLinecap="round"/>
-                      <path d="M195,148 C199,147 202,148 205,149 M195,155 C198,155 201,156 203,157" fill="none" stroke="#9C6646" strokeWidth="1.2" strokeLinecap="round"/>
-                      <path d="M162,136 C170,129 186,127 197,130 C202,132 202,138 197,139 C187,141 173,141 165,140" fill="url(#gp-mano)" stroke="#8A5A3C" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round"/>
-                      <path d="M172,132 C179,130 186,130 192,131" fill="none" stroke="#FBE3CF" strokeWidth="1.6" opacity="0.8" strokeLinecap="round"/>
+                      {/* pugno chiuso visto dal dorso, pollice sopra con l'unghia, le quattro dita piegate una sopra l'altra e le nocche sul davanti (21/11/2026, Federico: «la mano non si capisce») */}
+                      <path d="M156,131 C168,129 180,128 190,129 C198,130 204,135 206,142 C208,149 207,156 204,161 C200,166 194,168 186,168 C176,168 166,162 156,153 Z" fill="url(#gp-mano)"/>
+                      <path d="M190,140 C196,140 202,141 207,143 M190,149 C196,149 202,150 207,151 M188,158 C194,158 200,159 205,160" fill="none" stroke="#9C6646" strokeWidth="1.5" strokeLinecap="round"/>
+                      <path d="M189,135 C188,145 188,157 186,167" fill="none" stroke="#9C6646" strokeWidth="1.5" strokeLinecap="round"/>
+                      <path d="M166,130 C176,129 184,128 190,129 C198,130 204,135 206,142 C208,149 207,156 204,161 C200,166 194,168 186,168 C177,168 169,163 162,157" fill="none" stroke="#8A5A3C" strokeWidth="2.1" strokeLinejoin="round" strokeLinecap="round"/>
+                      <path d="M172,142 C176,148 178,154 178,160" fill="none" stroke="#B97E5A" strokeWidth="1.4" opacity="0.45" strokeLinecap="round"/>
+                      <path d="M162,135 C170,127 184,124 195,125 C202,126 206,130 204,135 C200,138 190,138 182,138 C174,138 168,138 163,137" fill="url(#gp-mano)" stroke="#8A5A3C" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round"/>
+                      <path d="M195,126.5 C200,126.5 203.5,129.5 203.5,133 C200,134 196.5,133 194.5,130.5 Z" fill="#F4D6BE" stroke="#B97E5A" strokeWidth="1.1"/>
+                      <path d="M172,130 C178,128 184,127 190,127.5" fill="none" stroke="#FBE3CF" strokeWidth="1.8" opacity="0.85" strokeLinecap="round"/>
                       {/* manica corta della maglia */}
                       <path d="M17,4 L68,4 L70,40 C56,45 32,45 17,40 Z" fill="url(#gp-maglia)" stroke="#1E2A40" strokeWidth="2.2" strokeLinejoin="round"/>
                       <path d="M19,35 C34,39 54,39 68,35" fill="none" stroke="#26324A" strokeWidth="2.2"/>
                       {/* dove fa male: l'esterno del gomito (epicondilo laterale), poco sopra e davanti alla punta del gomito */}
                       <ellipse cx="42" cy="142" rx="24" ry="20" fill="url(#gp-dolore)"/>
+                      <ellipse cx="42" cy="143" rx="13" ry="11" fill="url(#gp-dolore)"/>
                     </svg>
                 ) : null}
                 {s.figura === "tallone" ? (
-                  // piede visto di lato, la parte sotto il tallone accesa (fascite plantare)
-                  <svg width={200} height={240} viewBox="0 0 200 240" style={{ flex: "none" }}>
-                    <defs><radialGradient id="dolore-tallone"><stop offset="0" stopColor="#F59E0B" stopOpacity="0.9" /><stop offset="1" stopColor="#F59E0B" stopOpacity="0" /></radialGradient></defs>
-                    <path d="M40 20 L80 20 L84 150 Q86 168 98 176 L176 196 Q194 202 190 214 Q186 224 168 222 L56 222 Q30 220 32 196 Z" fill="#E9DFCF" />
-                    <ellipse cx="58" cy="216" rx="34" ry="22" fill="url(#dolore-tallone)" />
-                  </svg>
+                    // gamba e piede nudo visti dall'interno, nello stile dei disegni degli esercizi (21/11/2026, Federico: «rendili più realistici», «colore più forte»): sotto il tallone acceso (fascite plantare)
+                    <svg width={200} height={240} viewBox="0 0 200 240" style={{ flex: "none" }}>
+                      <defs>
+                      <linearGradient id="gt-pelle" gradientUnits="userSpaceOnUse" x1="40" y1="40" x2="190" y2="216"><stop offset="0" stopColor="#D9A57E"/><stop offset="0.4" stopColor="#EDC4A2"/><stop offset="1" stopColor="#E0AC86"/></linearGradient>
+                      <linearGradient id="gt-pant" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#3A4A72"/><stop offset="0.5" stopColor="#4E5F88"/><stop offset="1" stopColor="#40517A"/></linearGradient>
+                      <radialGradient id="gt-terra" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stopColor="#0B2447" stopOpacity="0.22"/><stop offset="1" stopColor="#0B2447" stopOpacity="0"/></radialGradient>
+                      <linearGradient id="gt-sotto" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#B97E5A" stopOpacity="0"/><stop offset="1" stopColor="#B97E5A" stopOpacity="0.45"/></linearGradient>
+                      <radialGradient id="gt-dolore"><stop offset="0" stopColor="#E23B1E" stopOpacity="0.95"/><stop offset="0.45" stopColor="#F26B1D" stopOpacity="0.75"/><stop offset="1" stopColor="#F59E0B" stopOpacity="0"/></radialGradient>
+                      </defs>
+                      <ellipse cx="124" cy="218" rx="80" ry="6" fill="url(#gt-terra)"/>
+                      {/* gamba e piede nudo visti dall'interno: polpaccio che si stringe, tendine d'Achille, tallone, arco, avampiede, alluce */}
+                      <path d="M46,40 C40,70 42,100 52,128 C56,142 58,154 58,166 C58,178 52,186 51,196 C50,208 58,215 72,216 C84,217 94,214 102,211 C112,207 126,206 138,209 C148,212 158,215 170,215 C180,215 187,214 192,212 C198,210 199,204 194,201 C190,198 184,197 178,196 C170,195 160,192 150,188 C136,182 122,175 112,170 C106,167 101,165 99,162 C97,128 96,80 96,40 Z" fill="url(#gt-pelle)" stroke="#8A5A3C" strokeWidth="2.2" strokeLinejoin="round"/>
+                      {/* ombra sotto la pianta e sotto l'arco */}
+                      <path d="M60,208 C70,215 86,216 100,211 C112,206 126,205 140,209 C152,213 168,214 184,212 L186,215 C170,217 150,216 138,212 C124,208 110,209 100,213 C86,219 66,217 58,210 Z" fill="url(#gt-sotto)"/>
+                      <path d="M98,210 C110,204 126,203 140,207" fill="none" stroke="#B97E5A" strokeWidth="2" opacity="0.5" strokeLinecap="round"/>
+                      {/* tendine d'Achille, malleolo, piega della caviglia */}
+                      <path d="M60,138 C63,152 62,166 58,182" fill="none" stroke="#B97E5A" strokeWidth="1.8" opacity="0.5" strokeLinecap="round"/>
+                      <path d="M74,170 C78,163 87,163 90,170 C90,177 84,181 77,179" fill="url(#gt-pelle)" stroke="#B97E5A" strokeWidth="1.6" opacity="0.9" strokeLinecap="round"/>
+                      <path d="M99,161 C103,165 107,167 111,169" fill="none" stroke="#B97E5A" strokeWidth="1.4" opacity="0.5" strokeLinecap="round"/>
+                      {/* alluce con l'unghia e la piega, testa del primo metatarso */}
+                      <path d="M182,198 C187,197 191,199 192,203 C189,204 185,203 182,201 Z" fill="#F4D6BE" stroke="#B97E5A" strokeWidth="1.2"/>
+                      <path d="M170,197 C172,202 172,208 170,214" fill="none" stroke="#9C6646" strokeWidth="1.4" strokeLinecap="round"/>
+                      <path d="M150,198 C155,192 163,192 166,198" fill="none" stroke="#B97E5A" strokeWidth="1.4" opacity="0.5" strokeLinecap="round"/>
+                      {/* riflessi su collo del piede e stinco */}
+                      <path d="M112,170 C126,177 142,184 158,189" fill="none" stroke="#FBE3CF" strokeWidth="3" opacity="0.7" strokeLinecap="round"/>
+                      <path d="M86,62 C88,92 89,122 90,150" fill="none" stroke="#FBE3CF" strokeWidth="2.6" opacity="0.5" strokeLinecap="round"/>
+                      {/* orlo dei pantaloni */}
+                      <path d="M40,0 L104,0 L104,62 C84,70 60,70 40,62 Z" fill="url(#gt-pant)" stroke="#1E2A40" strokeWidth="2.2" strokeLinejoin="round"/>
+                      <path d="M42,54 C62,61 84,61 102,54" fill="none" stroke="#2C3A5C" strokeWidth="2.4"/>
+                      {/* dove fa male: sotto il tallone, sul davanti, dove parte la fascia plantare */}
+                      <ellipse cx="82" cy="211" rx="25" ry="15" fill="url(#gt-dolore)"/>
+                      <ellipse cx="82" cy="212" rx="13" ry="8" fill="url(#gt-dolore)"/>
+                    </svg>
                 ) : null}
                 {s.figura === "nuca" ? (
-                  // testa vista da dietro, la nuca accesa da un lato: il segno più tipico del mal di testa che parte dal collo
-                  <svg width={200} height={240} viewBox="0 0 200 240" style={{ flex: "none" }}>
-                    <defs><radialGradient id="dolore-nuca"><stop offset="0" stopColor="#F59E0B" stopOpacity="0.9" /><stop offset="1" stopColor="#F59E0B" stopOpacity="0" /></radialGradient></defs>
-                    <ellipse cx="100" cy="92" rx="70" ry="82" fill="#E9DFCF" />
-                    <path d="M58 150 Q100 180 142 150 L150 240 L50 240 Z" fill="#E9DFCF" />
-                    <ellipse cx="28" cy="96" rx="10" ry="20" fill="#E0D3BE" /><ellipse cx="172" cy="96" rx="10" ry="20" fill="#E0D3BE" />
-                    <ellipse cx="128" cy="160" rx="38" ry="30" fill="url(#dolore-nuca)" />
-                  </svg>
+                    // testa, collo e spalle visti da dietro, nello stile dei disegni degli esercizi (21/11/2026, Federico: «rendili più realistici», «il dolore è evidenziato giusto?»): il dolore parte dalla nuca da un lato e sale sulla stessa metà della testa, come dicono i segni
+                    <svg width={200} height={240} viewBox="0 0 200 240" style={{ flex: "none" }}>
+                      <defs>
+                      <linearGradient id="gn-pelle" gradientUnits="userSpaceOnUse" x1="40" y1="30" x2="170" y2="210"><stop offset="0" stopColor="#D9A57E"/><stop offset="0.4" stopColor="#EDC4A2"/><stop offset="1" stopColor="#E0AC86"/></linearGradient>
+                      <linearGradient id="gn-ombra" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#8A5A3C" stopOpacity="0.35"/><stop offset="1" stopColor="#8A5A3C" stopOpacity="0"/></linearGradient>
+                      <linearGradient id="gn-capelli" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stopColor="#6A4B3A"/><stop offset="0.6" stopColor="#4A3428"/><stop offset="1" stopColor="#3A281E"/></linearGradient>
+                      <linearGradient id="gn-maglia" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#2A3652"/><stop offset="0.5" stopColor="#3A4865"/><stop offset="1" stopColor="#2F3C58"/></linearGradient>
+                      <radialGradient id="gn-dolore"><stop offset="0" stopColor="#E23B1E" stopOpacity="0.95"/><stop offset="0.45" stopColor="#F26B1D" stopOpacity="0.75"/><stop offset="1" stopColor="#F59E0B" stopOpacity="0"/></radialGradient>
+                      </defs>
+                      {/* spalle e trapezi */}
+                      <path d="M4,240 L4,176 C20,164 40,156 56,150 C64,146 68,138 69,128 L131,128 C132,138 136,146 144,150 C160,156 180,164 196,176 L196,240 Z" fill="url(#gn-pelle)" stroke="#8A5A3C" strokeWidth="2.2" strokeLinejoin="round"/>
+                      {/* orecchie con il bordo e la piega interna */}
+                      <path d="M58,76 C51,70 45,77 46,88 C47,96 51,101 58,100 L61,97 Z M142,76 C149,70 155,77 154,88 C153,96 149,101 142,100 L139,97 Z" fill="#E3B08A" stroke="#8A5A3C" strokeWidth="1.9" strokeLinejoin="round"/>
+                      <path d="M54,81 C51,85 51,91 54,95 M146,81 C149,85 149,91 146,95" fill="none" stroke="#B97E5A" strokeWidth="1.5" opacity="0.7" strokeLinecap="round"/>
+                      {/* testa (con gli angoli della mandibola sotto le orecchie) e collo in un pezzo solo */}
+                      <path d="M57,82 C57,48 76,30 100,30 C124,30 143,48 143,82 C143,96 141,106 135,114 C129,120 119,124 100,124 C81,124 71,120 65,114 C59,106 57,96 57,82 Z" fill="url(#gn-pelle)"/>
+                      <path d="M70,108 L130,108 C130,124 132,136 140,146 L150,160 L50,160 L60,146 C68,136 70,124 70,108 Z" fill="url(#gn-pelle)"/>
+                      <path d="M66,115 C59,106 57,96 57,82 C57,48 76,30 100,30 C124,30 143,48 143,82 C143,96 141,106 134,115" fill="none" stroke="#8A5A3C" strokeWidth="2.2" strokeLinecap="round"/>
+                      <path d="M66,115 C69,128 66,140 54,150 C40,156 22,164 6,175 M134,115 C131,128 134,140 146,150 C160,156 178,164 194,175" fill="none" stroke="#8A5A3C" strokeWidth="2.2" strokeLinecap="round"/>
+                      {/* ombra sotto il cranio, solco al centro del collo e muscoli della nuca */}
+                      <ellipse cx="100" cy="119" rx="32" ry="9" fill="url(#gn-ombra)"/>
+                      <path d="M100,121 C100,132 100,142 100,154" fill="none" stroke="#B97E5A" strokeWidth="1.6" opacity="0.35" strokeLinecap="round"/>
+                      <path d="M89,122 C88,132 86,140 82,148 M111,122 C112,132 114,140 118,148" fill="none" stroke="#B97E5A" strokeWidth="1.3" opacity="0.22" strokeLinecap="round"/>
+                      <path d="M76,140 C68,150 52,156 32,164 M124,140 C132,150 148,156 168,164" fill="none" stroke="#B97E5A" strokeWidth="1.6" opacity="0.35" strokeLinecap="round"/>
+                      <path d="M120,124 C122,132 124,138 128,144" fill="none" stroke="#FBE3CF" strokeWidth="2.4" opacity="0.5" strokeLinecap="round"/>
+                      {/* capelli corti, attaccatura sulla nuca un po' più bassa al centro */}
+                      <path d="M56,84 C53,48 74,28 100,28 C126,28 147,48 144,84 C144,94 142,102 138,108 C135,112 131,114 127,116 C119,112 110,112 100,115 C90,112 81,112 73,116 C69,114 65,112 62,108 C58,102 56,94 56,84 Z" fill="url(#gn-capelli)" stroke="#2E1F17" strokeWidth="2" strokeLinejoin="round"/>
+                      <path d="M74,44 C82,37 92,34 102,35 M66,64 C71,56 78,52 86,51 M116,46 C124,48 132,54 136,62 M62,88 C64,80 68,74 74,70 M138,88 C136,80 132,74 126,70 M90,60 C96,56 104,56 110,58 M84,92 C90,88 98,88 104,90 M108,98 C114,96 120,97 126,100" fill="none" stroke="#866250" strokeWidth="1.8" opacity="0.55" strokeLinecap="round"/>
+                      <path d="M80,108 l2,6 M90,107 l1,6 M110,107 l-1,6 M120,108 l-2,6" stroke="#3A281E" strokeWidth="1.6" strokeLinecap="round" opacity="0.7"/>
+                      {/* maglia con lo scollo dietro e una piega */}
+                      <path d="M0,184 C18,172 42,166 62,162 C78,171 122,171 138,162 C158,166 182,172 200,184 L200,240 L0,240 Z" fill="url(#gn-maglia)" stroke="#1E2A40" strokeWidth="2.2" strokeLinejoin="round"/>
+                      <path d="M64,167 C80,176 120,176 136,167" fill="none" stroke="#24304A" strokeWidth="3.2"/>
+                      <path d="M36,200 C50,208 64,212 80,214 M164,200 C150,208 136,212 120,214" fill="none" stroke="#24304A" strokeWidth="1.8" opacity="0.6" strokeLinecap="round"/>
+                      {/* dove fa male: parte dalla nuca da un lato, all'attaccatura dei capelli, e sale sulla stessa metà della testa */}
+                      <ellipse cx="117" cy="104" rx="19" ry="30" transform="rotate(-12 117 104)" fill="url(#gn-dolore)"/>
+                      <ellipse cx="118" cy="112" rx="12" ry="14" fill="url(#gn-dolore)"/>
+                    </svg>
                 ) : null}
                 <div style={{ flex: 1 }}>
                   <div style={{ textWrap: "pretty", color: NAVY_800, fontSize: 40, fontWeight: 800, marginBottom: 18 }}>{s.segni.titolo}</div>
