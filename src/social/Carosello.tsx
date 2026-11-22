@@ -107,7 +107,11 @@ export type Slide =
   // carosello, con un disegno a mano in due tempi in alto e largo (`disegno` = nome nel catalogo video-guide-media/social/disegni/
   // disegni.json, sezione «esercizi»; `disegni.py metti` copia i due SVG 447x300 in `disegnoSvg`), i passi sotto, la `fonte`
   // dello studio in fondo; slide ferma ovunque (niente video).
-  | { tipo: "esercizio"; titolo: string; passi: string[]; scritte?: [string, string]; clip?: string; da?: number; durata?: number; ritaglio?: string; secondi?: [number, number]; frecce?: [number, number, number, number][]; disegno?: string; disegnoSvg?: [string, string]; fonte?: string }
+  // Disegno animato (22/11/2026, Federico: «mettila dentro la sua slide… assicurati che possa funzionare per tutti i social»):
+  // con `disegnoVideo` (file in video-guide-media/social/disegni/animati/, copiato in public/esercizio.mp4 da
+  // prepara-esercizio.sh) su Instagram il disegno si muove in un riquadro solo; Facebook e TikTok, che nei caroselli
+  // accettano solo foto, e la JPEG di riserva di Instagram restano con le due pose ferme e le `scritte`.
+  | { tipo: "esercizio"; titolo: string; passi: string[]; scritte?: [string, string]; clip?: string; da?: number; durata?: number; ritaglio?: string; secondi?: [number, number]; frecce?: [number, number, number, number][]; disegno?: string; disegnoSvg?: [string, string]; disegnoVideo?: string; fonte?: string }
   // pratica (08/11/2026, Federico: «Cosa fare» e «Cosa evitare» in una slide sola, stile F3 scelto su 7 prove): due colonne
   // «✓ Sì» e «✕ No», 2 voci per parte, un disegno per voce. Le tessere del Sì sono blu piene (come la barra che vince nella
   // slide dei dati e il pulsante della chiusura), quelle del No bianche col bordo grigio. I disegni li sceglie la routine dal
@@ -174,6 +178,7 @@ export const durataAnimata = (s: Slide) =>
   s.tipo === "chiusura" && s.guida ? 9
   : s.tipo === "dato" && (s.illustrazione?.tipo === "barre" || (s.illustrazione?.tipo === "pittogramma" && s.illustrazione.totale <= 10)) ? 6
   : s.tipo === "esercizio" && s.clip ? Math.max(3, Math.min(12, s.durata ?? 6))
+  : s.tipo === "esercizio" && s.disegnoVideo ? Math.max(3, Math.min(12, s.durata ?? 10.8))
   : 0;
 
 const Tempo = createContext(false);
@@ -842,6 +847,13 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
         <Cornice n={n} tot={tot} colore={t.debole}>
           <Contenuto>
             <div style={{ textWrap: "pretty", color: t.titolo, fontSize: 62, fontWeight: 800, lineHeight: 1.1, marginBottom: 36, whiteSpace: "pre-line" }}>{s.titolo}</div>
+            {animato && s.disegnoVideo ? (
+              // un riquadro solo, alto quanto i due disegni con le scritte sotto: i passi restano dove sono nella slide ferma
+              // il video ha già le proporzioni del riquadro (900x346, fondo dentro il video): nessuna banda di colore ai lati
+              <div style={{ width: W, height: H + 46, marginBottom: 34, borderRadius: 22, overflow: "hidden", background: "#FBFAF7" }}>
+                <OffthreadVideo src={staticFile("esercizio.mp4")} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </div>
+            ) : (<>
             <div style={{ display: "flex", gap: 6, width: W, height: H, borderRadius: 22, overflow: "hidden", background: "#E2E8F0" }}>
               {[0, 1].map((i) => (
                 <div key={i} style={{ width: (W - 6) / 2, height: H, background: "white" }}>
@@ -852,6 +864,7 @@ const Slide1: React.FC<CaroselloProps & { indice: number }> = ({ stile, slide, i
             <div style={{ display: "flex", gap: 6, marginTop: 10, marginBottom: 34 }}>
               {(s.scritte ?? []).map((x) => <div key={x} style={{ width: (W - 6) / 2, textAlign: "center", color: SLATE_600, fontSize: 30, fontWeight: 700 }}>{x}</div>)}
             </div>
+            </>)}
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
               {s.passi.map((v, i) => (
                 <div key={i} style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>

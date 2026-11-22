@@ -11,6 +11,13 @@ set -euo pipefail
 D=$1
 E=$(jq -c '[.props.slide[]? | select(.tipo == "esercizio")] | .[0] // empty' "$D")
 [ -n "$E" ] || exit 0
+# Disegno animato (22/11/2026): il video sta in video-guide-media/social/disegni/animati/ e va in public/esercizio.mp4
+# (lo usa solo la slide animata di Instagram; Facebook, TikTok e la JPEG restano con i due disegni fermi)
+DV=$(jq -r '.disegnoVideo // empty' <<< "$E")
+if [ -z "$(jq -r '.clip // empty' <<< "$E")" ] && [ -n "$DV" ]; then
+  cp "$(dirname "$D")/../../disegni/animati/$DV" public/esercizio.mp4
+  echo "esercizio con il disegno animato: $DV"; exit 0
+fi
 # Senza girato (11/11/2026 sera) la slide ha il disegno a mano dentro il componente: niente da preparare
 [ "$(jq -r '.clip // empty' <<< "$E")" ] || { echo "esercizio con il disegno: niente da preparare"; exit 0; }
 CLIP=$(jq -r .clip <<< "$E"); DA=$(jq -r .da <<< "$E"); DUR=$(jq -r .durata <<< "$E")

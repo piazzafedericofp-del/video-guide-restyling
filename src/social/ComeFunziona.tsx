@@ -40,6 +40,7 @@ export const durataRubrica = (rubrica: string | undefined, s: SlideCome) =>
   rubrica !== COME_FUNZIONA ? durataAnimata(s as Slide)
   : s.tipo === "tavola" ? durataTavola(s)
   : s.tipo === "chiusura" && s.guida ? durataAnimata(s)
+  : s.tipo === "esercizio" ? durataAnimata(s as Slide)   // disegno animato su Instagram (22/11/2026)
   : 0;
 
 type Tema = { sfondo: string; titolo: string; corpo: string; debole: string; etichetta: string; numero: string; carta: string; bordo: string; scuro: boolean };
