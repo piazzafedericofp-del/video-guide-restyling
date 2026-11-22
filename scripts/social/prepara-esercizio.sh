@@ -15,8 +15,16 @@ E=$(jq -c '[.props.slide[]? | select(.tipo == "esercizio")] | .[0] // empty' "$D
 # (lo usa solo la slide animata di Instagram; Facebook, TikTok e la JPEG restano con i due disegni fermi)
 DV=$(jq -r '.disegnoVideo // empty' <<< "$E")
 if [ -z "$(jq -r '.clip // empty' <<< "$E")" ] && [ -n "$DV" ]; then
-  cp "$(dirname "$D")/../../disegni/animati/$DV" public/esercizio.mp4
-  echo "esercizio con il disegno animato: $DV"; exit 0
+  SRC="$(dirname "$D")/../../disegni/animati/$DV"
+  if [ -f "$SRC" ]; then
+    cp "$SRC" public/esercizio.mp4
+    echo "esercizio con il disegno animato: $DV"; exit 0
+  fi
+  # Video che manca (22/11/2026: la cartella non era nel checkout del workflow e due render sono falliti): il render non si
+  # ferma più, la slide esce ferma come su Facebook e TikTok e l'avviso resta nel log
+  echo "::warning::disegno animato $DV non trovato: la slide esercizio esce ferma anche su Instagram"
+  jq 'del(.props.slide[] | select(.tipo == "esercizio") | .disegnoVideo)' public/dati.json > public/dati.tmp && mv public/dati.tmp public/dati.json
+  exit 0
 fi
 # Senza girato (11/11/2026 sera) la slide ha il disegno a mano dentro il componente: niente da preparare
 [ "$(jq -r '.clip // empty' <<< "$E")" ] || { echo "esercizio con il disegno: niente da preparare"; exit 0; }

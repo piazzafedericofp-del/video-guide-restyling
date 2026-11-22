@@ -46,6 +46,7 @@ jobs:
             social/musica.json
             social/guide
             social/tavole
+            social/disegni/animati
 
       - name: Codice
         uses: actions/checkout@v4
