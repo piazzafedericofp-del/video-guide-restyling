@@ -228,6 +228,9 @@ jobs:
           # Foto: girato, clip, immagine in dashboard (r2:) o generata con l'IA (ia, campo prompt)
           bash scripts/social/prepara-foto.sh "$ID" "$D"
           # Slide «esercizio» (11/11/2026): video e due fotogrammi dal girato di Federico (clip dell'archivio); senza la slide non fa niente
+          # Disegno animato per Instagram (22/11/2026): se la slide esercizio è disegnata e non ha ancora il video, lo fa
+          # dai due SVG con i controlli (struttura, scatti); se non va la slide resta ferma, il render non si ferma mai qui
+          python3 scripts/social/anima-disegno.py "$D" || echo "::warning::animazione del disegno non riuscita: slide ferma"
           bash scripts/social/prepara-esercizio.sh "$D"
           node scripts/social/misura-carosello.mjs Carosello out/consegna/c45
           node scripts/social/misura-carosello.mjs Carosello916 out/consegna/c916
@@ -282,6 +285,8 @@ jobs:
           # social/posa solo se esiste: un carosello consegnato quando la cartella non c'era ancora fermava il flusso dopo la
           # consegna ("pathspec did not match", 6bb9f960, 29/10/2026) e il post veniva rifatto e riconsegnato
           git add "social/lavori/$ID"; if [ -d social/posa ]; then git add social/posa; fi
+          # video dei disegni animati fatti in questo render (anima-disegno.py): restano nell'archivio
+          if [ -d social/disegni/animati ]; then git add social/disegni/animati; fi
           git commit -q -m "social $ID: consegnato"
           for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
 
