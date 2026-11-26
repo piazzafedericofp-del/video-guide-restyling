@@ -99,8 +99,13 @@ def main():
     if not sl or sl[0].get("clip") or not sl[0].get("disegnoSvg"):
         print("anima-disegno: niente da animare (nessuna slide esercizio disegnata)"); return
     s = sl[0]
+    # Il video si salta solo se esiste davvero: un render fermato dopo l'animazione (controllo dei testi) lasciava
+    # disegnoVideo nel dati.json senza il file, e i render dopo uscivano con la slide ferma (ca7529c8, 26/11/2026)
     if s.get("disegnoVideo") and not solo_controllo:
-        print(f"anima-disegno: c'è già {s['disegnoVideo']}"); return
+        if (dati_p.parent.parent.parent / "disegni" / "animati" / s["disegnoVideo"]).exists():
+            print(f"anima-disegno: c'è già {s['disegnoVideo']}"); return
+        print(f"anima-disegno: {s['disegnoVideo']} non c'è nell'archivio, lo rifaccio")
+        s.pop("disegnoVideo", None); s.pop("durata", None)
     a, b = s["disegnoSvg"]
     cart_disegno = Path(tempfile.mkdtemp(prefix="pose"))
     (cart_disegno / "0.svg").write_text(a); (cart_disegno / "1.svg").write_text(b)
