@@ -7,6 +7,9 @@
 #    sveglia (prima ascoltava tutte le release di video-guide-media e partiva a ogni turno dei social: 17 volte il 30/10);
 # 3. aspetta risultato.json della routine (al massimo 2 ore) e lo consegna alla dashboard;
 # 4. cancella le release "azione-*" più vecchie di 2 ore (servono solo come segnale).
+# Dal 28/11/2026 "pubblica" (Pubblica sul sito) non sveglia più la routine: il merge di claude/azione-<id> in main lo
+# fa questo flusso con l'API di GitHub e SITO_TOKEN, come blog.yml, perché dal 02/11/2026 il cloud non può fare push su main
+# (debug dell'ecosistema 28/11). Prova a vuoto: Run workflow con "prova_ramo" = un ramo del sito (solo confronto, nessuna scrittura).
 # Nei log compaiono solo gli id delle azioni, mai i testi.
 name: Azioni approvate
 
@@ -14,6 +17,11 @@ on:
   schedule:
     - cron: "20 5 * * *"  # riserva: 6:20 / 7:20 ora di Roma
   workflow_dispatch:
+    inputs:
+      prova_ramo:
+        description: "Prova a vuoto: ramo del sito da confrontare con main (nessun merge, nessuno stato in dashboard)"
+        required: false
+        default: ""
 
 concurrency:
   group: azioni
@@ -33,7 +41,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 140
     steps:
+      - name: Prova a vuoto del merge (solo con prova_ramo)
+        if: ${{ inputs.prova_ramo }}
+        env:
+          SITO_TOKEN: ${{ secrets.SITO_TOKEN }}
+          SITO_REPO: piazzafedericofp-del/federicopiazza.com
+          RAMO: ${{ inputs.prova_ramo }}
+        run: |
+          python3 - <<'EOF'
+          import json, os, urllib.error, urllib.parse, urllib.request
+          q = urllib.parse.quote(os.environ["RAMO"], safe="")
+          r = urllib.request.Request(f"https://api.github.com/repos/{os.environ['SITO_REPO']}/compare/main...{q}",
+              headers={"authorization": "Bearer " + os.environ["SITO_TOKEN"], "accept": "application/vnd.github+json", "user-agent": "azioni-actions/1.0"})
+          try:
+              d = json.load(urllib.request.urlopen(r, timeout=60))
+              print("SITO_TOKEN legge il sito; ramo", d["status"], "avanti", d["ahead_by"], "indietro", d["behind_by"], "file", len(d.get("files", [])))
+          except urllib.error.HTTPError as e:
+              print("confronto non riuscito, codice", e.code, "(401/403/404 = token mancante, scaduto o senza accesso al sito)"); raise SystemExit(1)
+          EOF
+
       - name: Progetto privato (solo la cartella azioni)
+        if: ${{ !inputs.prova_ramo }}
         uses: actions/checkout@v4
         with:
           repository: piazzafedericofp-del/video-guide-media
@@ -43,6 +71,7 @@ jobs:
             azioni
 
       - name: Risultati e richieste
+        if: ${{ !inputs.prova_ramo }}
         run: |
           python3 - <<'EOF'
           import glob, json, os, subprocess, urllib.error, urllib.request
@@ -78,7 +107,62 @@ jobs:
             for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
           fi
 
+      # "pubblica": merge con l'API (zero token Claude), mai la routine. Solo rami claude/azione-*; il ramo resta intatto
+      # se il merge non riesce (conflitto 409, token 401/403/404): stato "errore" con il motivo, nessun aggiramento
+      - name: Pubblicazioni sul sito (merge con l'API di GitHub)
+        if: ${{ !inputs.prova_ramo }}
+        env:
+          SITO_TOKEN: ${{ secrets.SITO_TOKEN }}
+          SITO_REPO: piazzafedericofp-del/federicopiazza.com
+        run: |
+          python3 - <<'EOF'
+          import json, os, urllib.error, urllib.parse, urllib.request
+          B, T, S = os.environ["DASHBOARD"], os.environ["REVISIONE_TOKEN"], os.environ["SITO_REPO"]
+          def stato(id, s, giro, risultato):
+              r = urllib.request.Request(B + "/api/azioni/stato", method="POST", data=json.dumps({"id": id, "stato": s, "giro": giro, "risultato": risultato}).encode(),
+                  headers={"authorization": "Bearer " + T, "content-type": "application/json", "user-agent": "azioni-actions/1.0"})
+              urllib.request.urlopen(r, timeout=60); print(id, "→", s)
+          def gh(metodo, percorso, corpo=None):
+              r = urllib.request.Request("https://api.github.com" + percorso, method=metodo, data=json.dumps(corpo).encode() if corpo else None,
+                  headers={"authorization": "Bearer " + os.environ["SITO_TOKEN"], "accept": "application/vnd.github+json", "user-agent": "azioni-actions/1.0"})
+              try:
+                  with urllib.request.urlopen(r, timeout=60) as x: return x.status, json.loads(x.read() or b"{}")
+              except urllib.error.HTTPError as e: return e.code, {}
+          resto, scritti = [], []
+          for a in json.load(open("/tmp/nuove.json")):
+              if a["richiesta"] != "pubblica": resto.append(a); continue
+              prima = a.get("risultato") or {}
+              ramo = str(prima.get("ramo") or f"claude/azione-{a['id']}")
+              if not ramo.startswith("claude/azione-"):
+                  r = {**prima, "giro": a["giro"], "stato": "errore", "messaggio": "Il ramo da pubblicare non è un ramo delle azioni: non lo pubblico. Scrivimi in una nota che cosa fare."}
+              else:
+                  titolo = str((a.get("azione") or {}).get("titolo", ""))[:120]
+                  codice, d = gh("POST", f"/repos/{S}/merges", {"base": "main", "head": ramo, "commit_message": f"Azione {a['id']} approvata da Federico: {titolo}"})
+                  if codice in (201, 204):
+                      gh("DELETE", f"/repos/{S}/git/refs/heads/{urllib.parse.quote(ramo, safe='/')}")
+                      r = {**prima, "giro": a["giro"], "stato": "pubblicata", "tipo": "sito", "ramo": ramo, "commit": d.get("sha", ""), "pubblicato_con": "merge API"}
+                  elif codice == 409:
+                      r = {**prima, "giro": a["giro"], "stato": "errore", "messaggio": "Il ramo è in conflitto con il sito attuale: scrivi «riallinea» in una nota e lo rifaccio partendo dal sito di oggi."}
+                  else:
+                      perche = ("il flusso non ha il permesso di scrivere sul sito (token SITO_TOKEN mancante o scaduto)" if codice in (401, 403, 404)
+                                else f"GitHub non ha risposto come doveva (codice {codice})")
+                      r = {**prima, "giro": a["giro"], "stato": "errore", "pubblica": True, "messaggio": f"Non sono riuscito a pubblicare sul sito: {perche}. Il ramo è intatto."}
+              stato(a["id"], r["stato"], a["giro"], r)
+              d = f"media/azioni/{a['id']}"
+              json.dump(r, open(f"{d}/risultato.json", "w"), ensure_ascii=False, indent=1)
+              open(f"{d}/consegnato", "w").write(str(a["giro"])); scritti.append(a["id"])
+          json.dump(resto, open("/tmp/nuove.json", "w"))
+          print(len(scritti), "pubblicazioni trattate")
+          EOF
+          cd media
+          git add -A azioni
+          if ! git diff --cached --quiet; then
+            git commit -q -m "azioni: pubblicazioni sul sito"
+            for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 7; done
+          fi
+
       - name: Avvio della routine (una pre-release per richiesta, in questo repo)
+        if: ${{ !inputs.prova_ramo }}
         env:
           RELEASE_TOKEN: ${{ github.token }}
         run: |
@@ -100,6 +184,7 @@ jobs:
           EOF
 
       - name: Attesa della routine e consegna
+        if: ${{ !inputs.prova_ramo }}
         run: |
           python3 - <<'EOF'
           import json, os, subprocess, time, urllib.request
